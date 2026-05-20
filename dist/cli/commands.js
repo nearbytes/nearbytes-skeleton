@@ -1,28 +1,42 @@
 /**
  * Command handlers — pure async functions, framework-free.
  *
- * Each handler receives a Context and whatever arguments it needs, then
- * writes human-readable output to stdout.  The same functions are called from:
+ * Each handler receives a Context and whatever arguments it needs, then writes
+ * human-readable output to stdout.  The same functions are called from:
  *   - Commander.js (immediate mode): program.action(() => handler(ctx, ...))
  *   - REPL (interpreter mode): tokenised input dispatched here
  *
- * Errors are thrown as plain Error objects; callers decide whether to exit
- * the process (immediate mode) or print the message and continue (REPL).
+ * Layering enforced here:
+ *   CLI  →  ctx.fileService  (nearbytes-files FileService)
+ *                ↓ internally
+ *            ctx.skeleton.log  +  ctx.skeleton.crypto
+ *                ↓ internally
+ *            StorageBackend  (nearbytes-storage)
+ *
+ * ctx.skeleton is used only for volume-state views (ReactiveVolume) and the
+ * `setup` command (public-key derivation).  All file I/O goes through
+ * ctx.fileService.
+ *
+ * Errors are thrown as plain Error objects; callers decide whether to exit the
+ * process (immediate mode) or print the message and continue (REPL).
  */
 import { readFile, writeFile } from 'fs/promises';
 import { basename } from 'path';
-import { bytesToHex, createSecret } from 'nearbytes-crypto';
-import { storeData, retrieveData, deleteFile, setupChannel, getFile } from 'nearbytes-files';
+import { bytesToHex } from 'nearbytes-crypto';
 import { green, yellow, red, cyan, dim, bold, formatFileTable } from './output.js';
-import { openAndWatch } from './context.js';
+import { openAndWatch, refreshIfOpen } from './context.js';
 // ---------------------------------------------------------------------------
 // setup
 // ---------------------------------------------------------------------------
-/** Initialise a new channel (derives keys, stores nothing). */
+/**
+ * Derives the public key for a secret without reading or writing any events.
+ * Opens the volume in the skeleton so that subsequent commands in the same
+ * REPL session can reference it without repeating key derivation.
+ */
 export async function cmdSetup(ctx, secret) {
-    const result = await setupChannel(createSecret(secret), ctx.skeleton.crypto);
+    const rv = await ctx.skeleton.openVolume(secret);
     console.log(green('✓ Channel initialised'));
-    console.log(`  Public key: ${bytesToHex(result.publicKey)}`);
+    console.log(`  Public key: ${bytesToHex(rv.volume.publicKey)}`);
 }
 // ---------------------------------------------------------------------------
 // volume open / info / use
@@ -30,14 +44,14 @@ export async function cmdSetup(ctx, secret) {
 /** Open a volume, materialise its state, and print a summary. */
 export async function cmdVolumeOpen(ctx, secret, watch = true) {
     const rv = await openAndWatch(ctx, secret, watch);
-    const state = rv.get();
+    const files = await ctx.fileService.listFiles(secret);
     const keyHex = bytesToHex(rv.volume.publicKey);
     console.log(green('✓ Volume opened'));
     console.log(`  Public key: ${keyHex}`);
-    console.log(`  Files     : ${state.files.size}`);
-    if (state.files.size > 0) {
+    console.log(`  Files     : ${files.length}`);
+    if (files.length > 0) {
         console.log('');
-        console.log(formatFileTable(state.files));
+        console.log(formatFileTable(files));
     }
 }
 /** Print info for the currently-active volume. */
@@ -45,16 +59,16 @@ export async function cmdVolumeInfo(ctx) {
     if (!ctx.activeVolume) {
         throw new Error('No active volume — use `volume open <secret>` or `use <key>` first');
     }
-    const state = ctx.activeVolume.get();
     const keyHex = bytesToHex(ctx.activeVolume.volume.publicKey);
+    const state = ctx.activeVolume.get();
     console.log(`${bold('Public key:')} ${keyHex}`);
     console.log(`${bold('Files:')}      ${state.files.size}`);
 }
-/** Set the active volume by public-key hex prefix or full key. */
+/** Set the active volume by public-key hex prefix or secret. */
 export async function cmdUse(ctx, keyPrefixOrSecret) {
+    // First try exact or prefix match against already-open volumes.
     let rv = ctx.skeleton.getVolume(keyPrefixOrSecret);
     if (!rv) {
-        // Maybe it's a prefix
         for (const [key, vol] of ctx.skeleton.volumes) {
             if (key.startsWith(keyPrefixOrSecret)) {
                 rv = vol;
@@ -62,10 +76,9 @@ export async function cmdUse(ctx, keyPrefixOrSecret) {
             }
         }
     }
-    if (!rv) {
-        // Treat as a secret and open it
+    // Fall back to treating the argument as a secret and opening the volume.
+    if (!rv)
         rv = await openAndWatch(ctx, keyPrefixOrSecret);
-    }
     ctx.activeVolume = rv;
     console.log(green(`✓ Active volume: ${bytesToHex(rv.volume.publicKey)}`));
 }
@@ -73,87 +86,75 @@ export async function cmdUse(ctx, keyPrefixOrSecret) {
 // file add
 // ---------------------------------------------------------------------------
 export async function cmdFileAdd(ctx, filePath, secret, name) {
-    const s = createSecret(secret);
-    const fileName = name ?? basename(filePath);
-    if (!fileName || fileName.trim().length === 0)
+    const filename = name ?? basename(filePath);
+    if (!filename || filename.trim().length === 0)
         throw new Error('File name cannot be empty');
-    const data = new Uint8Array(await readFile(filePath));
-    const result = await storeData(data, fileName, s, ctx.skeleton.crypto, ctx.skeleton.log);
+    const data = Buffer.from(await readFile(filePath));
+    const meta = await ctx.fileService.addFile(secret, filename, data);
     console.log(green('✓ File added'));
-    console.log(`  Name      : ${fileName}`);
-    console.log(`  Event hash: ${result.eventHash}`);
-    console.log(`  Data hash : ${result.dataHash}`);
-    console.log(`  Size      : ${data.length} bytes`);
-    // Refresh the cached volume if it's already open
-    const rv = await openAndWatch(ctx, secret, false);
-    await rv.refresh();
+    console.log(`  Name : ${meta.filename}`);
+    console.log(`  Size : ${data.length} bytes`);
+    console.log(`  Hash : ${meta.blobHash.slice(0, 32)}…`);
+    await refreshIfOpen(ctx, secret);
 }
 // ---------------------------------------------------------------------------
 // file list
 // ---------------------------------------------------------------------------
 export async function cmdFileList(ctx, secret) {
-    const rv = await openAndWatch(ctx, secret, false);
-    const state = rv.get();
-    if (state.files.size === 0) {
+    const files = await ctx.fileService.listFiles(secret);
+    if (files.length === 0) {
         console.log(yellow('  (no files)'));
         return;
     }
-    console.log(green(`✓ ${state.files.size} file(s) in volume:`));
+    console.log(green(`✓ ${files.length} file(s):`));
     console.log('');
-    console.log(formatFileTable(state.files));
+    console.log(formatFileTable(files));
 }
 // ---------------------------------------------------------------------------
 // file get
 // ---------------------------------------------------------------------------
-export async function cmdFileGet(ctx, fileName, secret, outputPath) {
-    const s = createSecret(secret);
-    const rv = await openAndWatch(ctx, secret, false);
-    const state = rv.get();
-    const meta = getFile(state, fileName);
+export async function cmdFileGet(ctx, filename, secret, outputPath) {
+    const files = await ctx.fileService.listFiles(secret);
+    const meta = files.find((f) => f.filename === filename);
     if (!meta)
-        throw new Error(`File "${fileName}" not found in volume`);
-    const data = await retrieveData(meta.eventHash, s, ctx.skeleton.crypto, ctx.skeleton.log);
+        throw new Error(`File "${filename}" not found in volume`);
+    const data = await ctx.fileService.getFile(secret, meta.blobHash);
     await writeFile(outputPath, data);
     console.log(green('✓ File retrieved'));
-    console.log(`  Name   : ${fileName}`);
+    console.log(`  Name   : ${filename}`);
     console.log(`  Output : ${outputPath}`);
     console.log(`  Size   : ${data.length} bytes`);
 }
 // ---------------------------------------------------------------------------
 // file remove
 // ---------------------------------------------------------------------------
-export async function cmdFileRemove(ctx, fileName, secret) {
-    const s = createSecret(secret);
-    const result = await deleteFile(fileName, s, ctx.skeleton.crypto, ctx.skeleton.log);
+export async function cmdFileRemove(ctx, filename, secret) {
+    await ctx.fileService.deleteFile(secret, filename);
     console.log(green('✓ File removed'));
-    console.log(`  Name      : ${fileName}`);
-    console.log(`  Event hash: ${result.eventHash}`);
-    const rv = await openAndWatch(ctx, secret, false);
-    await rv.refresh();
+    console.log(`  Name: ${filename}`);
+    await refreshIfOpen(ctx, secret);
 }
 // ---------------------------------------------------------------------------
 // refresh
 // ---------------------------------------------------------------------------
 export async function cmdRefresh(ctx) {
-    const target = ctx.activeVolume;
-    if (!target) {
+    if (!ctx.activeVolume)
         throw new Error('No active volume');
-    }
-    await target.refresh();
-    const state = target.get();
+    await ctx.activeVolume.refresh();
+    const state = ctx.activeVolume.get();
     console.log(green(`✓ Refreshed — ${state.files.size} file(s)`));
 }
 // ---------------------------------------------------------------------------
-// volumes (list open volumes)
+// volumes (list all open volumes)
 // ---------------------------------------------------------------------------
 export async function cmdVolumes(ctx) {
     if (ctx.skeleton.volumes.size === 0) {
         console.log(yellow('  (no open volumes)'));
         return;
     }
-    const active = ctx.activeVolume ? bytesToHex(ctx.activeVolume.volume.publicKey) : null;
+    const activeKey = ctx.activeVolume ? bytesToHex(ctx.activeVolume.volume.publicKey) : null;
     for (const [key, rv] of ctx.skeleton.volumes) {
-        const marker = key === active ? cyan('▶ ') : '  ';
+        const marker = key === activeKey ? cyan('▶ ') : '  ';
         const count = rv.get().files.size;
         console.log(`${marker}${key.slice(0, 16)}…  ${dim(`${count} file(s)`)}`);
     }
@@ -166,22 +167,22 @@ export function cmdHelp() {
 ${bold('Nearbytes skeleton REPL')}
 
 ${cyan('Volume commands')}
-  setup <secret>                 Initialise a channel
-  volume open <secret>           Open a volume and display info
-  volumes                        List all open volumes
-  use <key-prefix|secret>        Set active volume
-  info                           Show active volume info
-  refresh                        Reload active volume state
+  setup <secret>                  Derive and display public key for a secret
+  volume open <secret>            Open a volume and display its file list
+  volumes                         List all open volumes in this session
+  use <key-prefix|secret>         Set active volume
+  info                            Show active volume info
+  refresh                         Reload active volume state
 
-${cyan('File commands')} ${dim('(active volume or explicit -s secret)')}
-  file add <path> [name] [-s]    Add a file
-  file list [-s <secret>]        List files
-  file get <name> <out> [-s]     Retrieve a file
-  file rm <name> [-s <secret>]   Remove a file
+${cyan('File commands')}
+  file add <path> [name] -s <secret>   Add a file to a volume
+  file list -s <secret>                List files in a volume
+  file get <name> <out> -s <secret>    Retrieve a file by name
+  file rm <name> -s <secret>           Remove a file from a volume
 
 ${cyan('REPL meta')}
-  help                           Show this message
-  exit / quit / ^D               Exit the REPL
+  help                            Show this message
+  exit / quit / ^D                Exit the REPL
 `);
 }
 export { red };

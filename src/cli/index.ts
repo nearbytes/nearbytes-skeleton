@@ -15,7 +15,7 @@
 
 import { Command } from 'commander';
 import { readConfig, defaultDataDir } from '../config.js';
-import { createContext, openAndWatch } from './context.js';
+import { createContext } from './context.js';
 import {
   cmdSetup,
   cmdVolumeOpen,
@@ -138,8 +138,6 @@ fileCmd
     const gopts = program.opts<{ config?: string; dataDir: string }>();
     const config = await readConfig(gopts.config).catch(() => ({ dataDir: gopts.dataDir, volumes: [] }));
     const ctx = await createContext({ ...config, dataDir: gopts.dataDir ?? config.dataDir });
-    // openAndWatch without watcher just to populate the cache
-    await openAndWatch(ctx, opts.secret, false);
     await bail(() => cmdFileList(ctx, opts.secret));
   });
 
@@ -153,7 +151,6 @@ fileCmd
     const gopts = program.opts<{ config?: string; dataDir: string }>();
     const config = await readConfig(gopts.config).catch(() => ({ dataDir: gopts.dataDir, volumes: [] }));
     const ctx = await createContext({ ...config, dataDir: gopts.dataDir ?? config.dataDir });
-    await openAndWatch(ctx, opts.secret, false);
     await bail(() => cmdFileGet(ctx, opts.name, opts.secret, opts.output));
   });
 
