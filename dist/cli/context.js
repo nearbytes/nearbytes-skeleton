@@ -5,7 +5,15 @@ import { createSecret } from 'nearbytes-crypto';
 import { FilesystemStorageBackend } from 'nearbytes-storage';
 import { createSkeleton } from '../skeleton.js';
 import { createFilesystemWatcher } from '../watcher.js';
-export function createContext(config) {
+import { initializeStorageRoot } from '../rootInit.js';
+/**
+ * Creates a CLI context for the given config, initialising the storage root
+ * on disk (creates directories, writes Nearbytes.html, removes obsolete files).
+ *
+ * Async because root initialisation touches the filesystem.
+ */
+export async function createContext(config) {
+    await initializeStorageRoot(config.dataDir);
     const storage = new FilesystemStorageBackend(config.dataDir);
     const skeleton = createSkeleton(storage);
     const watchers = new Map();

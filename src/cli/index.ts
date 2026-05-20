@@ -65,7 +65,7 @@ program
   .action(async () => {
     const opts = program.opts<{ config?: string; dataDir: string }>();
     const config = await readConfig(opts.config).catch(() => ({ dataDir: opts.dataDir, volumes: [] }));
-    const ctx = createContext({ ...config, dataDir: opts.dataDir ?? config.dataDir });
+    const ctx = await createContext({ ...config, dataDir: opts.dataDir ?? config.dataDir });
     await startRepl(ctx);
   });
 
@@ -78,7 +78,7 @@ program
   .action(async (opts: { secret: string }) => {
     const gopts = program.opts<{ config?: string; dataDir: string }>();
     const config = await readConfig(gopts.config).catch(() => ({ dataDir: gopts.dataDir, volumes: [] }));
-    const ctx = createContext({ ...config, dataDir: gopts.dataDir ?? config.dataDir });
+    const ctx = await createContext({ ...config, dataDir: gopts.dataDir ?? config.dataDir });
     await bail(() => cmdSetup(ctx, opts.secret));
   });
 
@@ -93,7 +93,7 @@ volumeCmd
   .action(async (opts: { secret: string }) => {
     const gopts = program.opts<{ config?: string; dataDir: string }>();
     const config = await readConfig(gopts.config).catch(() => ({ dataDir: gopts.dataDir, volumes: [] }));
-    const ctx = createContext({ ...config, dataDir: gopts.dataDir ?? config.dataDir });
+    const ctx = await createContext({ ...config, dataDir: gopts.dataDir ?? config.dataDir });
     await bail(() => cmdVolumeOpen(ctx, opts.secret, false));
   });
 
@@ -125,7 +125,7 @@ fileCmd
   .action(async (opts: { path: string; secret: string; name?: string }) => {
     const gopts = program.opts<{ config?: string; dataDir: string }>();
     const config = await readConfig(gopts.config).catch(() => ({ dataDir: gopts.dataDir, volumes: [] }));
-    const ctx = createContext({ ...config, dataDir: gopts.dataDir ?? config.dataDir });
+    const ctx = await createContext({ ...config, dataDir: gopts.dataDir ?? config.dataDir });
     await bail(() => cmdFileAdd(ctx, opts.path, opts.secret, opts.name));
   });
 
@@ -137,7 +137,7 @@ fileCmd
   .action(async (opts: { secret: string }) => {
     const gopts = program.opts<{ config?: string; dataDir: string }>();
     const config = await readConfig(gopts.config).catch(() => ({ dataDir: gopts.dataDir, volumes: [] }));
-    const ctx = createContext({ ...config, dataDir: gopts.dataDir ?? config.dataDir });
+    const ctx = await createContext({ ...config, dataDir: gopts.dataDir ?? config.dataDir });
     // openAndWatch without watcher just to populate the cache
     await openAndWatch(ctx, opts.secret, false);
     await bail(() => cmdFileList(ctx, opts.secret));
@@ -152,7 +152,7 @@ fileCmd
   .action(async (opts: { name: string; secret: string; output: string }) => {
     const gopts = program.opts<{ config?: string; dataDir: string }>();
     const config = await readConfig(gopts.config).catch(() => ({ dataDir: gopts.dataDir, volumes: [] }));
-    const ctx = createContext({ ...config, dataDir: gopts.dataDir ?? config.dataDir });
+    const ctx = await createContext({ ...config, dataDir: gopts.dataDir ?? config.dataDir });
     await openAndWatch(ctx, opts.secret, false);
     await bail(() => cmdFileGet(ctx, opts.name, opts.secret, opts.output));
   });
@@ -166,7 +166,7 @@ fileCmd
   .action(async (opts: { name: string; secret: string }) => {
     const gopts = program.opts<{ config?: string; dataDir: string }>();
     const config = await readConfig(gopts.config).catch(() => ({ dataDir: gopts.dataDir, volumes: [] }));
-    const ctx = createContext({ ...config, dataDir: gopts.dataDir ?? config.dataDir });
+    const ctx = await createContext({ ...config, dataDir: gopts.dataDir ?? config.dataDir });
     await bail(() => cmdFileRemove(ctx, opts.name, opts.secret));
   });
 

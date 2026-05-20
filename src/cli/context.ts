@@ -7,6 +7,7 @@ import { FilesystemStorageBackend } from 'nearbytes-storage';
 import { createSkeleton, type NearbytesSkeleton } from '../skeleton.js';
 import { createFilesystemWatcher, type VolumeWatcher } from '../watcher.js';
 import { type NearbytesConfig } from '../config.js';
+import { initializeStorageRoot } from '../rootInit.js';
 import type { ReactiveVolume } from '../volume.js';
 
 export interface Context {
@@ -20,7 +21,15 @@ export interface Context {
   destroy(): void;
 }
 
-export function createContext(config: NearbytesConfig): Context {
+/**
+ * Creates a CLI context for the given config, initialising the storage root
+ * on disk (creates directories, writes Nearbytes.html, removes obsolete files).
+ *
+ * Async because root initialisation touches the filesystem.
+ */
+export async function createContext(config: NearbytesConfig): Promise<Context> {
+  await initializeStorageRoot(config.dataDir);
+
   const storage = new FilesystemStorageBackend(config.dataDir);
   const skeleton = createSkeleton(storage);
   const watchers = new Map<string, VolumeWatcher>();

@@ -29,3 +29,6 @@ export type { ReactiveVolume } from './volume.js';
 // Filesystem watcher (Node.js only; no-op in browser)
 export { createFilesystemWatcher } from './watcher.js';
 export type { VolumeWatcher } from './watcher.js';
+
+// Storage root initialisation (Node.js only)
+export { initializeStorageRoot } from './rootInit.js';

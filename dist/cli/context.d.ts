@@ -15,7 +15,13 @@ export interface Context {
     /** Tear down all watchers. */
     destroy(): void;
 }
-export declare function createContext(config: NearbytesConfig): Context;
+/**
+ * Creates a CLI context for the given config, initialising the storage root
+ * on disk (creates directories, writes Nearbytes.html, removes obsolete files).
+ *
+ * Async because root initialisation touches the filesystem.
+ */
+export declare function createContext(config: NearbytesConfig): Promise<Context>;
 /**
  * Opens a volume and (optionally) installs a filesystem watcher that keeps it
  * refreshed automatically.  Idempotent — safe to call multiple times with the

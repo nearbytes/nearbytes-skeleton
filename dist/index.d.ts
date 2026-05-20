@@ -19,4 +19,5 @@ export { createReactiveVolume } from './volume.js';
 export type { ReactiveVolume } from './volume.js';
 export { createFilesystemWatcher } from './watcher.js';
 export type { VolumeWatcher } from './watcher.js';
+export { initializeStorageRoot } from './rootInit.js';
 //# sourceMappingURL=index.d.ts.map

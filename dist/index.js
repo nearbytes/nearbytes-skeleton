@@ -19,4 +19,6 @@ export { createSkeleton } from './skeleton.js';
 export { createReactiveVolume } from './volume.js';
 // Filesystem watcher (Node.js only; no-op in browser)
 export { createFilesystemWatcher } from './watcher.js';
+// Storage root initialisation (Node.js only)
+export { initializeStorageRoot } from './rootInit.js';
 //# sourceMappingURL=index.js.map
