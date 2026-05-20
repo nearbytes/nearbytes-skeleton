@@ -1,7 +1,7 @@
 {
   "name": "nearbytes-skeleton",
   "version": "0.1.0",
-  "description": "Nearbytes application skeleton — reactive volume state, config, file watching, CLI + REPL",
+  "description": "Nearbytes application skeleton \u2014 reactive volume state, config, file watching, CLI + REPL",
   "type": "module",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
@@ -19,7 +19,8 @@
   },
   "scripts": {
     "build": "tsc",
-    "type-check": "tsc --noEmit"
+    "type-check": "tsc --noEmit",
+    "prepare": "tsc"
   },
   "license": "MIT",
   "engines": {
