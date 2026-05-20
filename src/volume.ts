@@ -49,7 +49,7 @@ export interface ReactiveVolume extends Readable<VolumeFileSystemState> {
  * should await this function before attaching subscribers that need a
  * fully-loaded state.
  *
- * @param secret  - Volume secret (e.g. "myvolume:password")
+ * @param secret  - Volume secret (branded type from nearbytes-crypto)
  * @param crypto  - Cryptographic operations (from nearbytes-crypto)
  * @param log     - Event log (from nearbytes-log)
  */
@@ -65,14 +65,11 @@ export async function createReactiveVolume(
   let refreshing = false;
 
   const reactiveVolume: ReactiveVolume = {
-    // Readable contract
     subscribe: store.subscribe.bind(store),
     get: store.get.bind(store),
 
-    // Volume identity
     volume,
 
-    // Reactive refresh
     async refresh(): Promise<void> {
       if (refreshing) return;
       refreshing = true;

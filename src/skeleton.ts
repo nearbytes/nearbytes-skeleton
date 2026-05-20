@@ -11,9 +11,9 @@
  * browser injects an IndexedDB backend.  No platform code lives here.
  */
 
-import { createCryptoOperations, type CryptoOperations, type Secret } from 'nearbytes-crypto';
-import type { StorageBackend } from 'nearbytes-storage';
-import { createLog, defaultPathMapper, type Log } from 'nearbytes-log';
+import { createCryptoOperations, createSecret, type CryptoOperations, type Secret } from 'nearbytes-crypto';
+import { defaultPathMapper, type StorageBackend } from 'nearbytes-storage';
+import { createLog, type Log } from 'nearbytes-log';
 import { createReactiveVolume, type ReactiveVolume } from './volume.js';
 
 // ---------------------------------------------------------------------------
@@ -29,7 +29,7 @@ export interface NearbytesSkeleton {
    * Opens a volume from a secret, materialises its state, and caches the
    * result.  Subsequent calls with the same secret return the cached instance.
    */
-  openVolume(secret: Secret): Promise<ReactiveVolume>;
+  openVolume(secret: string): Promise<ReactiveVolume>;
   /**
    * Returns an already-open ReactiveVolume by its hex public key, or
    * undefined if the volume was never opened in this session.
@@ -60,7 +60,9 @@ export function createSkeleton(storage: StorageBackend): NearbytesSkeleton {
     crypto,
     log,
 
-    async openVolume(secret: Secret): Promise<ReactiveVolume> {
+    async openVolume(rawSecret: string): Promise<ReactiveVolume> {
+      const secret: Secret = createSecret(rawSecret);
+
       // Derive the public key to use as the cache key
       const keyPair = await crypto.deriveKeys(secret);
       const { bytesToHex } = await import('nearbytes-crypto');

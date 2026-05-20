@@ -12,8 +12,8 @@
 
 import { readFile, writeFile } from 'fs/promises';
 import { basename } from 'path';
-import { bytesToHex } from 'nearbytes-crypto';
-import { storeData, retrieveData, deleteFile, setupChannel, listFiles, getFile } from 'nearbytes-files';
+import { bytesToHex, createSecret } from 'nearbytes-crypto';
+import { storeData, retrieveData, deleteFile, setupChannel, getFile } from 'nearbytes-files';
 import { green, yellow, red, cyan, dim, bold, formatFileTable } from './output.js';
 import { type Context, openAndWatch } from './context.js';
 
@@ -23,7 +23,7 @@ import { type Context, openAndWatch } from './context.js';
 
 /** Initialise a new channel (derives keys, stores nothing). */
 export async function cmdSetup(ctx: Context, secret: string): Promise<void> {
-  const result = await setupChannel(secret as `${string}:${string}`, ctx.skeleton.crypto);
+  const result = await setupChannel(createSecret(secret), ctx.skeleton.crypto);
   console.log(green('✓ Channel initialised'));
   console.log(`  Public key: ${bytesToHex(result.publicKey)}`);
 }
@@ -94,13 +94,13 @@ export async function cmdFileAdd(
   secret: string,
   name?: string,
 ): Promise<void> {
-  const secret_ = secret as `${string}:${string}`;
+  const s = createSecret(secret);
   const fileName = name ?? basename(filePath);
   if (!fileName || fileName.trim().length === 0) throw new Error('File name cannot be empty');
 
   const data = new Uint8Array(await readFile(filePath));
 
-  const result = await storeData(data, fileName, secret_, ctx.skeleton.crypto, ctx.skeleton.log);
+  const result = await storeData(data, fileName, s, ctx.skeleton.crypto, ctx.skeleton.log);
 
   console.log(green('✓ File added'));
   console.log(`  Name      : ${fileName}`);
@@ -139,14 +139,14 @@ export async function cmdFileGet(
   secret: string,
   outputPath: string,
 ): Promise<void> {
-  const secret_ = secret as `${string}:${string}`;
+  const s = createSecret(secret);
   const rv = await openAndWatch(ctx, secret, false);
   const state = rv.get();
 
   const meta = getFile(state, fileName);
   if (!meta) throw new Error(`File "${fileName}" not found in volume`);
 
-  const data = await retrieveData(meta.eventHash, secret_, ctx.skeleton.crypto, ctx.skeleton.log);
+  const data = await retrieveData(meta.eventHash, s, ctx.skeleton.crypto, ctx.skeleton.log);
   await writeFile(outputPath, data);
 
   console.log(green('✓ File retrieved'));
@@ -164,8 +164,8 @@ export async function cmdFileRemove(
   fileName: string,
   secret: string,
 ): Promise<void> {
-  const secret_ = secret as `${string}:${string}`;
-  const result = await deleteFile(fileName, secret_, ctx.skeleton.crypto, ctx.skeleton.log);
+  const s = createSecret(secret);
+  const result = await deleteFile(fileName, s, ctx.skeleton.crypto, ctx.skeleton.log);
 
   console.log(green('✓ File removed'));
   console.log(`  Name      : ${fileName}`);
@@ -222,7 +222,7 @@ ${cyan('Volume commands')}
   info                           Show active volume info
   refresh                        Reload active volume state
 
-${cyan('File commands')} ${dim('(active volume or explicit secret)')}
+${cyan('File commands')} ${dim('(active volume or explicit -s secret)')}
   file add <path> [name] [-s]    Add a file
   file list [-s <secret>]        List files
   file get <name> <out> [-s]     Retrieve a file
@@ -234,5 +234,4 @@ ${cyan('REPL meta')}
 `);
 }
 
-// Suppress unused-import warnings — these are re-exported for callers
 export { red };

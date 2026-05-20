@@ -1,11 +1,8 @@
 /**
  * CLI session context — shared mutable state for both immediate and REPL mode.
- *
- * A single Context instance is created when the CLI boots and threaded through
- * every command handler.  In immediate mode the context is discarded on exit;
- * in REPL mode it persists across commands, so an opened volume stays open.
  */
 
+import { createSecret } from 'nearbytes-crypto';
 import { FilesystemStorageBackend } from 'nearbytes-storage';
 import { createSkeleton, type NearbytesSkeleton } from '../skeleton.js';
 import { createFilesystemWatcher, type VolumeWatcher } from '../watcher.js';
@@ -51,7 +48,7 @@ export async function openAndWatch(
   secret: string,
   watch = true,
 ): Promise<ReactiveVolume> {
-  const rv = await ctx.skeleton.openVolume(secret as `${string}:${string}`);
+  const rv = await ctx.skeleton.openVolume(createSecret(secret));
   const { bytesToHex } = await import('nearbytes-crypto');
   const keyHex = bytesToHex(rv.volume.publicKey);
 

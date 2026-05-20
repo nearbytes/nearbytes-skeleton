@@ -19,8 +19,6 @@ import { createContext, openAndWatch } from './context.js';
 import {
   cmdSetup,
   cmdVolumeOpen,
-  cmdVolumes,
-  cmdVolumeInfo,
   cmdFileAdd,
   cmdFileList,
   cmdFileGet,

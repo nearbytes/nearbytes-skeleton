@@ -17,7 +17,7 @@
  */
 
 import * as readline from 'readline';
-import { cyan, dim, green, red, bold } from './output.js';
+import { cyan, dim, red, bold } from './output.js';
 import {
   cmdSetup,
   cmdVolumeOpen,
