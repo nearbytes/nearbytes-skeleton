@@ -1,13 +1,10 @@
 {
   "name": "nearbytes-skeleton",
   "version": "0.1.0",
-  "description": "Nearbytes application skeleton \u2014 reactive volume state, config, file watching, CLI + REPL",
+  "description": "Nearbytes protocol foundation \u2014 crypto + log wiring, reactive store, config, filesystem watcher",
   "type": "module",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
-  "bin": {
-    "nbf": "dist/cli/index.js"
-  },
   "files": [
     "dist"
   ],
@@ -20,17 +17,14 @@
   "scripts": {
     "build": "tsc",
     "type-check": "tsc --noEmit",
-    "prepare": "tsc",
-    "run": "node dist/cli/index.js"
+    "prepare": "tsc"
   },
   "license": "MIT",
   "engines": {
     "node": ">=18.0.0"
   },
   "dependencies": {
-    "commander": "^12.0.0",
     "nearbytes-crypto": "nearbytes/nearbytes-crypto#main",
-    "nearbytes-files": "nearbytes/nearbytes-files#main",
     "nearbytes-log": "nearbytes/nearbytes-log#main",
     "nearbytes-storage": "nearbytes/nearbytes-storage#main"
   },

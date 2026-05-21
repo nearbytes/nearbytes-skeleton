@@ -18,9 +18,12 @@
  * Changes are debounced by `debounceMs` (default 200 ms) to avoid a burst of
  * refreshes when many files are written in quick succession.
  *
- * @param dataDir    - Directory to watch (should be the skeleton's dataDir)
- * @param volume     - ReactiveVolume to refresh on change
- * @param debounceMs - Debounce delay in milliseconds (default 200)
+ * The `volume` parameter is structurally typed — any object with a `refresh()`
+ * method works (e.g. a `ReactiveVolume` from `nearbytes-files`).
+ *
+ * @param dataDir    - Directory to watch (the skeleton's dataDir).
+ * @param volume     - Object whose `refresh()` is called on filesystem change.
+ * @param debounceMs - Debounce delay in milliseconds (default 200).
  */
 export function createFilesystemWatcher(dataDir, volume, debounceMs = 200) {
     // Browser guard — dynamic require so bundlers can tree-shake this module

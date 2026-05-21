@@ -1,44 +1,35 @@
 /**
- * NearbytesSkeleton — the central wiring object for a Nearbytes application.
+ * NearbytesSkeleton — the protocol foundation for a Nearbytes application.
  *
- * A skeleton holds exactly:
- *   - one CryptoOperations instance
- *   - one event Log (wrapping an injected StorageBackend)
- *   - a map of currently-open ReactiveVolumes
+ * The skeleton wires a StorageBackend into a CryptoOperations instance and an
+ * event Log.  It is intentionally thin: no volume state, no file logic.
  *
- * The skeleton is environment-neutral: it accepts the StorageBackend as a
- * constructor argument so Node.js injects FilesystemStorageBackend while a
- * browser injects an IndexedDB backend.  No platform code lives here.
+ * Future responsibilities (not yet implemented):
+ *   - Inter-device routing: propagating events across storage roots
+ *   - Sync coordination: merging events from remote peers
+ *
+ * Environment-neutral: pass a FilesystemStorageBackend (Node.js) or an
+ * IndexedDB-backed backend (browser) — no platform code lives here.
  */
 import { type CryptoOperations } from 'nearbytes-crypto';
 import { type StorageBackend } from 'nearbytes-storage';
 import { type Log } from 'nearbytes-log';
-import { type ReactiveVolume } from './volume.js';
 export interface NearbytesSkeleton {
-    /** Low-level crypto operations (sign, verify, derive keys, …). */
+    /** Cryptographic operations: sign, verify, derive keys, encrypt, hash. */
     readonly crypto: CryptoOperations;
-    /** Event log — wraps the injected storage backend. */
+    /**
+     * Event log + block store wired to the injected StorageBackend.
+     * This is the single source of truth for all persistent state.
+     */
     readonly log: Log;
-    /**
-     * Opens a volume from a secret, materialises its state, and caches the
-     * result.  Subsequent calls with the same secret return the cached instance.
-     */
-    openVolume(secret: string): Promise<ReactiveVolume>;
-    /**
-     * Returns an already-open ReactiveVolume by its hex public key, or
-     * undefined if the volume was never opened in this session.
-     */
-    getVolume(publicKeyHex: string): ReactiveVolume | undefined;
-    /** All currently-open ReactiveVolumes. */
-    readonly volumes: ReadonlyMap<string, ReactiveVolume>;
 }
 /**
- * Creates a new NearbytesSkeleton wired to the given StorageBackend.
+ * Creates a `NearbytesSkeleton` wired to the given StorageBackend.
  *
- * Call this once at application start-up and pass the result to your CLI,
- * GUI, or any other consumer.
+ * Call once at application start-up. Pass `skeleton.log` and `skeleton.crypto`
+ * to `createFileService` (nearbytes-files) or any other consumer.
  *
- * @param storage - Environment-specific storage backend
+ * @param storage - Environment-specific storage backend.
  */
 export declare function createSkeleton(storage: StorageBackend): NearbytesSkeleton;
 //# sourceMappingURL=skeleton.d.ts.map
