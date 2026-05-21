@@ -11,9 +11,6 @@ import { readFile } from 'fs/promises';
 import { existsSync } from 'fs';
 import path from 'path';
 import os from 'os';
-// ---------------------------------------------------------------------------
-// Defaults
-// ---------------------------------------------------------------------------
 const DEFAULT_CONFIG_DIR = path.join(os.homedir(), '.nearbytes');
 const DEFAULT_CONFIG_FILE = path.join(DEFAULT_CONFIG_DIR, 'config.json');
 const DEFAULT_DATA_DIR = path.join(os.homedir(), 'nearbytes', 'local');
@@ -29,9 +26,6 @@ const EMPTY_CONFIG = {
     dataDir: defaultDataDir(),
     volumes: [],
 };
-// ---------------------------------------------------------------------------
-// Loader
-// ---------------------------------------------------------------------------
 /**
  * Reads and parses the config file.
  *

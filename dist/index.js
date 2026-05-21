@@ -1,23 +1,9 @@
 /**
- * nearbytes-skeleton — public API
- *
- * The skeleton is the protocol foundation layer: it wires a StorageBackend
- * into a CryptoOperations instance and an event Log, and exposes the generic
- * reactive-store primitives, config, filesystem watcher, and storage-root
- * initialisation needed by higher layers.
- *
- * Future additions: inter-device routing and sync coordination live here.
- *
- * Higher-level concerns (file storage, CLI) live in nearbytes-files.
+ * nearbytes-skeleton — protocol foundation: crypto + log, reactive store, config, watcher.
  */
-// Core reactive primitives — framework-agnostic, Svelte-store-compatible
 export { writable, derived } from './store.js';
-// Configuration
 export { readConfig, defaultConfigPath, defaultDataDir } from './config.js';
-// Protocol foundation: crypto + log
-export { createSkeleton } from './skeleton.js';
-// Filesystem watcher (Node.js only; no-op in browser)
+export { createSkeleton, createFilesystemSkeleton } from './skeleton.js';
 export { createFilesystemWatcher } from './watcher.js';
-// Storage root initialisation (Node.js only)
 export { initializeStorageRoot } from './rootInit.js';
 //# sourceMappingURL=index.js.map

@@ -23,10 +23,6 @@ import { mkdir, writeFile, rm, access } from 'fs/promises';
 import { join } from 'path';
 import { constants } from 'fs';
 
-// ---------------------------------------------------------------------------
-// Discovery marker content
-// ---------------------------------------------------------------------------
-
 /**
  * Builds the `Nearbytes.html` discovery marker for a storage root.
  *
@@ -126,10 +122,6 @@ function buildNearbytesHtml(): string {
 `;
 }
 
-// ---------------------------------------------------------------------------
-// Public API
-// ---------------------------------------------------------------------------
-
 /**
  * Ensures the storage root at `dataDir` conforms to the Nearbytes
  * meta-storage specification (§4.1):
@@ -143,18 +135,12 @@ function buildNearbytesHtml(): string {
  * @param dataDir - Absolute path to the storage root directory.
  */
 export async function initializeStorageRoot(dataDir: string): Promise<void> {
-  // Required directories (recursive: no error if already present)
   await mkdir(join(dataDir, 'blocks'), { recursive: true });
   await mkdir(join(dataDir, 'channels'), { recursive: true });
-
-  // Discovery marker — always rewritten to reflect the current app version
   await writeFile(join(dataDir, 'Nearbytes.html'), buildNearbytesHtml(), 'utf8');
 
-  // Remove obsolete Nearbytes.json (spec §4.1 rule 7: MUST be ignored and removed)
   try {
     await access(join(dataDir, 'Nearbytes.json'), constants.F_OK);
     await rm(join(dataDir, 'Nearbytes.json'));
-  } catch {
-    // File absent — nothing to remove
-  }
+  } catch {}
 }

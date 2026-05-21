@@ -13,10 +13,6 @@ import { existsSync } from 'fs';
 import path from 'path';
 import os from 'os';
 
-// ---------------------------------------------------------------------------
-// Types
-// ---------------------------------------------------------------------------
-
 export interface VolumeConfig {
   /** Human-readable label for this volume. */
   readonly label: string;
@@ -30,10 +26,6 @@ export interface NearbytesConfig {
   /** Pre-configured volumes (optional — volumes can also be opened ad-hoc). */
   readonly volumes: ReadonlyArray<VolumeConfig>;
 }
-
-// ---------------------------------------------------------------------------
-// Defaults
-// ---------------------------------------------------------------------------
 
 const DEFAULT_CONFIG_DIR = path.join(os.homedir(), '.nearbytes');
 const DEFAULT_CONFIG_FILE = path.join(DEFAULT_CONFIG_DIR, 'config.json');
@@ -53,10 +45,6 @@ const EMPTY_CONFIG: NearbytesConfig = {
   dataDir: defaultDataDir(),
   volumes: [],
 };
-
-// ---------------------------------------------------------------------------
-// Loader
-// ---------------------------------------------------------------------------
 
 /**
  * Reads and parses the config file.

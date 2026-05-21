@@ -1,37 +1,12 @@
+import { watch } from 'fs';
 /**
- * Filesystem watcher — triggers a ReactiveVolume refresh whenever the
- * underlying storage directory changes.
- *
- * This module is Node.js-only (uses fs.watch).  In a browser environment
- * the watcher is a no-op: calling createFilesystemWatcher() returns an
- * object whose close() does nothing.  Storage-change notifications in the
- * browser will instead come from the storage backend's own event system
- * (future work).
- */
-// ---------------------------------------------------------------------------
-// Factory
-// ---------------------------------------------------------------------------
-/**
- * Watches `dataDir` for filesystem changes and calls `volume.refresh()` when
- * any change is detected.
- *
- * Changes are debounced by `debounceMs` (default 200 ms) to avoid a burst of
- * refreshes when many files are written in quick succession.
- *
- * The `volume` parameter is structurally typed — any object with a `refresh()`
- * method works (e.g. a `ReactiveVolume` from `nearbytes-files`).
- *
- * @param dataDir    - Directory to watch (the skeleton's dataDir).
- * @param volume     - Object whose `refresh()` is called on filesystem change.
- * @param debounceMs - Debounce delay in milliseconds (default 200).
+ * Watches `dataDir` and calls `volume.refresh()` on change (debounced).
+ * Returns a no-op watcher when Node.js is unavailable.
  */
 export function createFilesystemWatcher(dataDir, volume, debounceMs = 200) {
-    // Browser guard — dynamic require so bundlers can tree-shake this module
     if (typeof process === 'undefined' || process.versions?.node === undefined) {
         return { close() { } };
     }
-    // eslint-disable-next-line @typescript-eslint/no-require-imports
-    const { watch } = require('fs');
     let timer = null;
     const watcher = watch(dataDir, { recursive: true }, () => {
         if (timer !== null)
