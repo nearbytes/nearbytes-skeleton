@@ -20,7 +20,8 @@
   "scripts": {
     "build": "tsc",
     "type-check": "tsc --noEmit",
-    "prepare": "tsc"
+    "prepare": "tsc",
+    "run": "node dist/cli/index.js"
   },
   "license": "MIT",
   "engines": {
