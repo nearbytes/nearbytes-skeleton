@@ -25,7 +25,8 @@
   },
   "dependencies": {
     "nearbytes-crypto": "file:../nearbytes-crypto",
-    "nearbytes-log": "file:../nearbytes-log"
+    "nearbytes-log": "file:../nearbytes-log",
+    "nearbytes-sync": "file:../nearbytes-sync"
   },
   "devDependencies": {
     "@types/node": "^20.10.0",

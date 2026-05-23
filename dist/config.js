@@ -25,7 +25,12 @@ export function defaultDataDir() {
 const EMPTY_CONFIG = {
     dataDir: defaultDataDir(),
     volumes: [],
+    friends: [],
 };
+/** Config-shaped defaults when no config file is present. */
+export function emptyConfig(dataDir = defaultDataDir()) {
+    return { dataDir, volumes: [], friends: [] };
+}
 /**
  * Reads and parses the config file.
  *
@@ -80,6 +85,14 @@ function mergeWithDefaults(raw) {
             }
         }
     }
-    return { dataDir, volumes };
+    const friends = [];
+    if (Array.isArray(obj['friends'])) {
+        for (const f of obj['friends']) {
+            if (typeof f === 'string' && f.trim().length > 0) {
+                friends.push(f.trim().toLowerCase());
+            }
+        }
+    }
+    return { dataDir, volumes, friends };
 }
 //# sourceMappingURL=config.js.map

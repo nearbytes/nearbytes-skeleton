@@ -25,6 +25,8 @@ export interface NearbytesConfig {
   readonly dataDir: string;
   /** Pre-configured volumes (optional — volumes can also be opened ad-hoc). */
   readonly volumes: ReadonlyArray<VolumeConfig>;
+  /** Friend profile public keys (hex) for sync; may be empty. */
+  readonly friends: ReadonlyArray<string>;
 }
 
 const DEFAULT_CONFIG_DIR = path.join(os.homedir(), '.nearbytes');
@@ -44,7 +46,13 @@ export function defaultDataDir(): string {
 const EMPTY_CONFIG: NearbytesConfig = {
   dataDir: defaultDataDir(),
   volumes: [],
+  friends: [],
 };
+
+/** Config-shaped defaults when no config file is present. */
+export function emptyConfig(dataDir: string = defaultDataDir()): NearbytesConfig {
+  return { dataDir, volumes: [], friends: [] };
+}
 
 /**
  * Reads and parses the config file.
@@ -110,5 +118,14 @@ function mergeWithDefaults(raw: unknown): NearbytesConfig {
     }
   }
 
-  return { dataDir, volumes };
+  const friends: string[] = [];
+  if (Array.isArray(obj['friends'])) {
+    for (const f of obj['friends']) {
+      if (typeof f === 'string' && f.trim().length > 0) {
+        friends.push(f.trim().toLowerCase());
+      }
+    }
+  }
+
+  return { dataDir, volumes, friends };
 }

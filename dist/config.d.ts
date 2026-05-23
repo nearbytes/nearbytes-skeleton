@@ -18,11 +18,15 @@ export interface NearbytesConfig {
     readonly dataDir: string;
     /** Pre-configured volumes (optional — volumes can also be opened ad-hoc). */
     readonly volumes: ReadonlyArray<VolumeConfig>;
+    /** Friend profile public keys (hex) for sync; may be empty. */
+    readonly friends: ReadonlyArray<string>;
 }
 /** Returns the default config file path (overridable via NEARBYTES_CONFIG). */
 export declare function defaultConfigPath(): string;
 /** Returns the default storage directory (overridable via NEARBYTES_STORAGE_DIR). */
 export declare function defaultDataDir(): string;
+/** Config-shaped defaults when no config file is present. */
+export declare function emptyConfig(dataDir?: string): NearbytesConfig;
 /**
  * Reads and parses the config file.
  *

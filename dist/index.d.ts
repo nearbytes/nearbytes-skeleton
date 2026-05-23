@@ -3,9 +3,9 @@
  */
 export { writable, derived } from './store.js';
 export type { Readable, Writable, Subscriber, Unsubscriber } from './store.js';
-export { readConfig, defaultConfigPath, defaultDataDir } from './config.js';
+export { readConfig, emptyConfig, defaultConfigPath, defaultDataDir } from './config.js';
 export type { NearbytesConfig, VolumeConfig } from './config.js';
-export { createSkeleton, createFilesystemSkeleton } from './skeleton.js';
+export { createSkeleton, createFilesystemSkeleton, createFilesystemSkeletonFromConfig, } from './skeleton.js';
 export type { NearbytesSkeleton } from './skeleton.js';
 export { createFilesystemWatcher } from './watcher.js';
 export type { VolumeWatcher, Refreshable } from './watcher.js';

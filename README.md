@@ -1,19 +1,32 @@
 # nearbytes-skeleton
 
-Protocol foundation: crypto + log, reactive store, config, filesystem watcher, storage-root init.
+Protocol foundation: crypto + log + sync, reactive store, config, filesystem watcher, storage-root init.
 
 ## API
 
-- **`createSkeleton(log)`** — wire crypto to an existing `Log`
-- **`createFilesystemSkeleton(dataDir)`** — init root + filesystem log
-- **`writable` / `derived`** — Svelte-store-compatible primitives (no Svelte dependency)
-- **`readConfig`**, **`initializeStorageRoot`**, **`createFilesystemWatcher`**
+- **`createFilesystemSkeletonFromConfig(config)`** — init root, log, and `start(log, config.friends)`
+- **`createFilesystemSkeleton(dataDir, friends?)`** — same without reading config file
+- **`createSkeleton(log, friends)`** — wire crypto + sync to an existing `Log`
+- **`readConfig`** — returns `NearbytesConfig` with required `friends` (may be `[]`)
+- **`writable` / `derived`**, **`createFilesystemWatcher`**, **`initializeStorageRoot`**
+
+## Config
+
+```json
+{
+  "dataDir": "~/nearbytes/local",
+  "volumes": [],
+  "friends": ["<profile-public-key-hex>"]
+}
+```
 
 ## Example
 
 ```ts
-import { createFilesystemSkeleton } from 'nearbytes-skeleton';
+import { readConfig, createFilesystemSkeletonFromConfig } from 'nearbytes-skeleton';
 
-const skeleton = await createFilesystemSkeleton('/path/to/data');
-// skeleton.crypto, skeleton.log
+const config = await readConfig();
+const skeleton = await createFilesystemSkeletonFromConfig(config);
+// skeleton.crypto, skeleton.log, skeleton.sync
+await skeleton.destroy();
 ```
