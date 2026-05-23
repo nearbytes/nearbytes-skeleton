@@ -20,6 +20,8 @@ export interface NearbytesConfig {
     readonly volumes: ReadonlyArray<VolumeConfig>;
     /** Friend profile public keys (hex) for sync; may be empty. */
     readonly friends: ReadonlyArray<string>;
+    /** Secret for your profile channel (`name:password`); not a volume secret. */
+    readonly profileSecret?: string;
 }
 /** Returns the default config file path (overridable via NEARBYTES_CONFIG). */
 export declare function defaultConfigPath(): string;
@@ -36,4 +38,8 @@ export declare function emptyConfig(dataDir?: string): NearbytesConfig;
  * @param configPath - Path to the JSON config file (default: `defaultConfigPath()`)
  */
 export declare function readConfig(configPath?: string): Promise<NearbytesConfig>;
+/**
+ * Writes config JSON (creates parent directory if needed).
+ */
+export declare function writeConfig(config: NearbytesConfig, configPath?: string): Promise<void>;
 //# sourceMappingURL=config.d.ts.map

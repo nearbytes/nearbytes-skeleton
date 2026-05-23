@@ -8,7 +8,7 @@
  * For now the file is plain JSON so the skeleton can boot without a secret.
  */
 
-import { readFile } from 'fs/promises';
+import { mkdir, readFile, writeFile } from 'fs/promises';
 import { existsSync } from 'fs';
 import path from 'path';
 import os from 'os';
@@ -27,6 +27,8 @@ export interface NearbytesConfig {
   readonly volumes: ReadonlyArray<VolumeConfig>;
   /** Friend profile public keys (hex) for sync; may be empty. */
   readonly friends: ReadonlyArray<string>;
+  /** Secret for your profile channel (`name:password`); not a volume secret. */
+  readonly profileSecret?: string;
 }
 
 const DEFAULT_CONFIG_DIR = path.join(os.homedir(), '.nearbytes');
@@ -127,5 +129,25 @@ function mergeWithDefaults(raw: unknown): NearbytesConfig {
     }
   }
 
-  return { dataDir, volumes, friends };
+  const profileSecret =
+    typeof obj['profileSecret'] === 'string' && obj['profileSecret'].trim().length > 0
+      ? obj['profileSecret'].trim()
+      : undefined;
+
+  return { dataDir, volumes, friends, profileSecret };
+}
+
+/**
+ * Writes config JSON (creates parent directory if needed).
+ */
+export async function writeConfig(config: NearbytesConfig, configPath?: string): Promise<void> {
+  const filePath = configPath ?? defaultConfigPath();
+  await mkdir(path.dirname(filePath), { recursive: true });
+  const body = {
+    dataDir: config.dataDir,
+    volumes: config.volumes.map((v) => ({ label: v.label, secret: v.secret })),
+    friends: [...config.friends],
+    ...(config.profileSecret ? { profileSecret: config.profileSecret } : {}),
+  };
+  await writeFile(filePath, `${JSON.stringify(body, null, 2)}\n`, 'utf-8');
 }

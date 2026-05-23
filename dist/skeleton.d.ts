@@ -8,17 +8,18 @@ import type { NearbytesConfig } from './config.js';
 export interface NearbytesSkeleton {
     readonly crypto: CryptoOperations;
     readonly log: Log;
-    readonly sync: SyncHandle;
+    sync: SyncHandle;
     destroy(): Promise<void>;
+    reloadSync(friends: readonly string[], serveProfilePublicKey?: string): Promise<void>;
 }
 /**
- * Wires a pre-built `Log` with crypto and starts sync for the given friends list.
+ * Wires a pre-built `Log` with crypto and starts sync.
  */
-export declare function createSkeleton(log: Log, friends: readonly string[]): Promise<NearbytesSkeleton>;
+export declare function createSkeleton(log: Log, friends: readonly string[], profileSecret?: string): Promise<NearbytesSkeleton>;
 /**
  * Initialises a filesystem storage root and returns a skeleton backed by it.
  */
-export declare function createFilesystemSkeleton(dataDir: string, friends?: readonly string[]): Promise<NearbytesSkeleton>;
+export declare function createFilesystemSkeleton(dataDir: string, friends?: readonly string[], profileSecret?: string): Promise<NearbytesSkeleton>;
 /**
  * Boot from parsed config: storage root, log, and sync for `config.friends`.
  */
