@@ -12,14 +12,14 @@ export {
   defaultConfigPath,
   defaultDataDir,
 } from './config.js';
-export type { NearbytesConfig, VolumeConfig } from './config.js';
+export type { NearbytesConfig, VolumeConfig, ProfileConfig } from './config.js';
 
 export {
   createSkeleton,
   createFilesystemSkeleton,
   createFilesystemSkeletonFromConfig,
 } from './skeleton.js';
-export type { NearbytesSkeleton } from './skeleton.js';
+export type { NearbytesSkeleton, SyncProfileSpec } from './skeleton.js';
 
 export { createFilesystemWatcher } from './watcher.js';
 export type { VolumeWatcher, Refreshable } from './watcher.js';

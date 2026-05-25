@@ -26,10 +26,12 @@ const EMPTY_CONFIG = {
     dataDir: defaultDataDir(),
     volumes: [],
     friends: [],
+    profiles: [],
+    activeProfile: null,
 };
 /** Config-shaped defaults when no config file is present. */
 export function emptyConfig(dataDir = defaultDataDir()) {
-    return { dataDir, volumes: [], friends: [] };
+    return { dataDir, volumes: [], friends: [], profiles: [], activeProfile: null };
 }
 /**
  * Reads and parses the config file.
@@ -93,10 +95,47 @@ function mergeWithDefaults(raw) {
             }
         }
     }
-    const profileSecret = typeof obj['profileSecret'] === 'string' && obj['profileSecret'].trim().length > 0
-        ? obj['profileSecret'].trim()
-        : undefined;
-    return { dataDir, volumes, friends, profileSecret };
+    const profiles = readProfiles(obj);
+    const activeProfile = readActiveProfile(obj, profiles);
+    return { dataDir, volumes, friends, profiles, activeProfile };
+}
+/**
+ * Reads `profiles` from a config object, with an in-place upgrade from the
+ * legacy singular `profileSecret: string` field (per `sync-discovery-v1.md`
+ * DISC-33): when present, it is materialised as `[{ name: "default", secret }]`.
+ */
+function readProfiles(obj) {
+    const profiles = [];
+    const seen = new Set();
+    if (Array.isArray(obj['profiles'])) {
+        for (const entry of obj['profiles']) {
+            if (typeof entry !== 'object' || entry === null)
+                continue;
+            const e = entry;
+            const name = typeof e['name'] === 'string' ? e['name'].trim() : '';
+            const secret = typeof e['secret'] === 'string' ? e['secret'].trim() : '';
+            if (name.length === 0 || secret.length === 0 || seen.has(name))
+                continue;
+            seen.add(name);
+            profiles.push({ name, secret });
+        }
+    }
+    if (profiles.length === 0 && typeof obj['profileSecret'] === 'string') {
+        const legacy = obj['profileSecret'].trim();
+        if (legacy.length > 0) {
+            profiles.push({ name: 'default', secret: legacy });
+        }
+    }
+    return profiles;
+}
+function readActiveProfile(obj, profiles) {
+    if (profiles.length === 0)
+        return null;
+    const names = new Set(profiles.map((p) => p.name));
+    const raw = obj['activeProfile'];
+    if (typeof raw === 'string' && names.has(raw))
+        return raw;
+    return profiles[0].name;
 }
 /**
  * Writes config JSON (creates parent directory if needed).
@@ -108,7 +147,8 @@ export async function writeConfig(config, configPath) {
         dataDir: config.dataDir,
         volumes: config.volumes.map((v) => ({ label: v.label, secret: v.secret })),
         friends: [...config.friends],
-        ...(config.profileSecret ? { profileSecret: config.profileSecret } : {}),
+        profiles: config.profiles.map((p) => ({ name: p.name, secret: p.secret })),
+        activeProfile: config.activeProfile,
     };
     await writeFile(filePath, `${JSON.stringify(body, null, 2)}\n`, 'utf-8');
 }

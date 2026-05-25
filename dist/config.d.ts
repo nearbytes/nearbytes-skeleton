@@ -13,15 +13,35 @@ export interface VolumeConfig {
     /** Volume secret string in "name:password" format. */
     readonly secret: string;
 }
+/**
+ * One named profile slot — see `requirements/sync-discovery-v1.md` DISC-33.
+ * The `secret` is the seed used by `crypto.deriveKeys`; the public key
+ * derived from it is the profile public key carried on the wire.
+ */
+export interface ProfileConfig {
+    /** Local name (unique within `profiles`), used by `profile use <name>`. */
+    readonly name: string;
+    /** Profile secret (`name:password`); not a volume secret. */
+    readonly secret: string;
+}
 export interface NearbytesConfig {
     /** Root directory for all local storage. Defaults to ~/nearbytes/local. */
     readonly dataDir: string;
     /** Pre-configured volumes (optional — volumes can also be opened ad-hoc). */
     readonly volumes: ReadonlyArray<VolumeConfig>;
-    /** Friend profile public keys (hex) for sync; may be empty. */
+    /** Friend profile public keys (hex) for sync; may be empty. Global across profiles. */
     readonly friends: ReadonlyArray<string>;
-    /** Secret for your profile channel (`name:password`); not a volume secret. */
-    readonly profileSecret?: string;
+    /**
+     * Local profile slots; may be empty (in which case sync is inert until the
+     * first profile is added). See `requirements/sync-protocol-v1.md` SYNC-00.
+     */
+    readonly profiles: ReadonlyArray<ProfileConfig>;
+    /**
+     * Name of the active profile (the one that signs `profile publish` and is
+     * used as the follower identity for outbound discovery). MUST be `null`
+     * when `profiles` is empty, otherwise MUST be one of `profiles[i].name`.
+     */
+    readonly activeProfile: string | null;
 }
 /** Returns the default config file path (overridable via NEARBYTES_CONFIG). */
 export declare function defaultConfigPath(): string;

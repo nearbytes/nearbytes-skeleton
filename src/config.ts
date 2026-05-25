@@ -20,15 +20,36 @@ export interface VolumeConfig {
   readonly secret: string;
 }
 
+/**
+ * One named profile slot — see `requirements/sync-discovery-v1.md` DISC-33.
+ * The `secret` is the seed used by `crypto.deriveKeys`; the public key
+ * derived from it is the profile public key carried on the wire.
+ */
+export interface ProfileConfig {
+  /** Local name (unique within `profiles`), used by `profile use <name>`. */
+  readonly name: string;
+  /** Profile secret (`name:password`); not a volume secret. */
+  readonly secret: string;
+}
+
 export interface NearbytesConfig {
   /** Root directory for all local storage. Defaults to ~/nearbytes/local. */
   readonly dataDir: string;
   /** Pre-configured volumes (optional — volumes can also be opened ad-hoc). */
   readonly volumes: ReadonlyArray<VolumeConfig>;
-  /** Friend profile public keys (hex) for sync; may be empty. */
+  /** Friend profile public keys (hex) for sync; may be empty. Global across profiles. */
   readonly friends: ReadonlyArray<string>;
-  /** Secret for your profile channel (`name:password`); not a volume secret. */
-  readonly profileSecret?: string;
+  /**
+   * Local profile slots; may be empty (in which case sync is inert until the
+   * first profile is added). See `requirements/sync-protocol-v1.md` SYNC-00.
+   */
+  readonly profiles: ReadonlyArray<ProfileConfig>;
+  /**
+   * Name of the active profile (the one that signs `profile publish` and is
+   * used as the follower identity for outbound discovery). MUST be `null`
+   * when `profiles` is empty, otherwise MUST be one of `profiles[i].name`.
+   */
+  readonly activeProfile: string | null;
 }
 
 const DEFAULT_CONFIG_DIR = path.join(os.homedir(), '.nearbytes');
@@ -49,11 +70,13 @@ const EMPTY_CONFIG: NearbytesConfig = {
   dataDir: defaultDataDir(),
   volumes: [],
   friends: [],
+  profiles: [],
+  activeProfile: null,
 };
 
 /** Config-shaped defaults when no config file is present. */
 export function emptyConfig(dataDir: string = defaultDataDir()): NearbytesConfig {
-  return { dataDir, volumes: [], friends: [] };
+  return { dataDir, volumes: [], friends: [], profiles: [], activeProfile: null };
 }
 
 /**
@@ -129,12 +152,49 @@ function mergeWithDefaults(raw: unknown): NearbytesConfig {
     }
   }
 
-  const profileSecret =
-    typeof obj['profileSecret'] === 'string' && obj['profileSecret'].trim().length > 0
-      ? obj['profileSecret'].trim()
-      : undefined;
+  const profiles = readProfiles(obj);
+  const activeProfile = readActiveProfile(obj, profiles);
 
-  return { dataDir, volumes, friends, profileSecret };
+  return { dataDir, volumes, friends, profiles, activeProfile };
+}
+
+/**
+ * Reads `profiles` from a config object, with an in-place upgrade from the
+ * legacy singular `profileSecret: string` field (per `sync-discovery-v1.md`
+ * DISC-33): when present, it is materialised as `[{ name: "default", secret }]`.
+ */
+function readProfiles(obj: Record<string, unknown>): ProfileConfig[] {
+  const profiles: ProfileConfig[] = [];
+  const seen = new Set<string>();
+  if (Array.isArray(obj['profiles'])) {
+    for (const entry of obj['profiles']) {
+      if (typeof entry !== 'object' || entry === null) continue;
+      const e = entry as Record<string, unknown>;
+      const name = typeof e['name'] === 'string' ? e['name'].trim() : '';
+      const secret = typeof e['secret'] === 'string' ? e['secret'].trim() : '';
+      if (name.length === 0 || secret.length === 0 || seen.has(name)) continue;
+      seen.add(name);
+      profiles.push({ name, secret });
+    }
+  }
+  if (profiles.length === 0 && typeof obj['profileSecret'] === 'string') {
+    const legacy = (obj['profileSecret'] as string).trim();
+    if (legacy.length > 0) {
+      profiles.push({ name: 'default', secret: legacy });
+    }
+  }
+  return profiles;
+}
+
+function readActiveProfile(
+  obj: Record<string, unknown>,
+  profiles: readonly ProfileConfig[],
+): string | null {
+  if (profiles.length === 0) return null;
+  const names = new Set(profiles.map((p) => p.name));
+  const raw = obj['activeProfile'];
+  if (typeof raw === 'string' && names.has(raw)) return raw;
+  return profiles[0]!.name;
 }
 
 /**
@@ -147,7 +207,8 @@ export async function writeConfig(config: NearbytesConfig, configPath?: string):
     dataDir: config.dataDir,
     volumes: config.volumes.map((v) => ({ label: v.label, secret: v.secret })),
     friends: [...config.friends],
-    ...(config.profileSecret ? { profileSecret: config.profileSecret } : {}),
+    profiles: config.profiles.map((p) => ({ name: p.name, secret: p.secret })),
+    activeProfile: config.activeProfile,
   };
   await writeFile(filePath, `${JSON.stringify(body, null, 2)}\n`, 'utf-8');
 }

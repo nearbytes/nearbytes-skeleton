@@ -6,31 +6,37 @@ import { createCryptoOperations } from 'nearbytes-crypto';
 import { createFilesystemLog } from 'nearbytes-log';
 import { start } from 'nearbytes-sync/node';
 import { initializeStorageRoot } from './rootInit.js';
-async function profilePublicKeyFromSecret(crypto, profileSecret) {
-    const keyPair = await crypto.deriveKeys(createSecret(profileSecret));
+async function publicKeyFromSecret(crypto, secret) {
+    const keyPair = await crypto.deriveKeys(createSecret(secret));
     return bytesToHex(keyPair.publicKey);
 }
 /**
- * Inert sync handle for the "no identity declared yet" state: the node has
- * no profile public key, so per `requirements/sync-discovery-v1.md` it has
- * no topic to join and per `requirements/sync-protocol-v1.md` it cannot
- * authenticate friend handshakes. The skeleton represents this explicitly
- * with a dormant handle; `reloadSync` swaps in a live one as soon as
- * `profileSecret` is configured.
+ * Inert sync handle for the "no profile declared yet" state: the node has
+ * no profile public keys, so per `requirements/sync-protocol-v1.md` SYNC-00
+ * it has no topic to join and cannot authenticate friend handshakes. The
+ * skeleton represents this explicitly with a dormant handle; `reloadSync`
+ * swaps in a live one as soon as the first profile is added.
  */
 const INERT_SYNC = {
     friends: [],
+    serveProfilePublicKeys: [],
     stop: async () => { },
 };
-async function bootSync(log, friends, profileSecret, blockStorageRoot) {
-    if (!profileSecret) {
+async function bootSync(log, friends, spec, blockStorageRoot) {
+    if (spec.profiles.length === 0 || spec.activeProfile === null) {
         return INERT_SYNC;
     }
     const crypto = createCryptoOperations();
-    const serveProfilePublicKey = await profilePublicKeyFromSecret(crypto, profileSecret);
+    const servedPks = await Promise.all(spec.profiles.map((p) => publicKeyFromSecret(crypto, p.secret)));
+    const activeIdx = spec.profiles.findIndex((p) => p.name === spec.activeProfile);
+    if (activeIdx < 0) {
+        throw new Error(`bootSync: activeProfile "${spec.activeProfile}" is not in profiles[]`);
+    }
+    const activeProfilePublicKey = servedPks[activeIdx];
     const discoveryTransport = process.env['NEARBYTES_SYNC_DISCOVERY'] === 'mdns' ? 'mdns' : undefined;
     return start(log, friends, {
-        serveProfilePublicKey,
+        serveProfilePublicKeys: servedPks,
+        activeProfilePublicKey,
         blockStorageRoot,
         ...(discoveryTransport ? { discoveryTransport } : {}),
     });
@@ -38,9 +44,9 @@ async function bootSync(log, friends, profileSecret, blockStorageRoot) {
 /**
  * Wires a pre-built `Log` with crypto and starts sync.
  */
-export async function createSkeleton(log, friends, profileSecret, blockStorageRoot) {
+export async function createSkeleton(log, friends, spec, blockStorageRoot) {
     const crypto = createCryptoOperations();
-    let sync = await bootSync(log, friends, profileSecret, blockStorageRoot);
+    let sync = await bootSync(log, friends, spec, blockStorageRoot);
     const storageRoot = blockStorageRoot;
     const skeleton = {
         crypto,
@@ -51,9 +57,9 @@ export async function createSkeleton(log, friends, profileSecret, blockStorageRo
         async destroy() {
             await sync.stop();
         },
-        async reloadSync(nextFriends, nextProfileSecret) {
+        async reloadSync(nextFriends, nextSpec) {
             await sync.stop();
-            sync = await bootSync(log, nextFriends, nextProfileSecret ?? profileSecret, storageRoot);
+            sync = await bootSync(log, nextFriends, nextSpec, storageRoot);
         },
     };
     return skeleton;
@@ -61,14 +67,17 @@ export async function createSkeleton(log, friends, profileSecret, blockStorageRo
 /**
  * Initialises a filesystem storage root and returns a skeleton backed by it.
  */
-export async function createFilesystemSkeleton(dataDir, friends = [], profileSecret) {
+export async function createFilesystemSkeleton(dataDir, friends = [], spec = { profiles: [], activeProfile: null }) {
     await initializeStorageRoot(dataDir);
-    return createSkeleton(createFilesystemLog(dataDir), friends, profileSecret, dataDir);
+    return createSkeleton(createFilesystemLog(dataDir), friends, spec, dataDir);
 }
 /**
  * Boot from parsed config: storage root, log, and sync for `config.friends`.
  */
 export async function createFilesystemSkeletonFromConfig(config) {
-    return createFilesystemSkeleton(config.dataDir, config.friends, config.profileSecret);
+    return createFilesystemSkeleton(config.dataDir, config.friends, {
+        profiles: config.profiles,
+        activeProfile: config.activeProfile,
+    });
 }
 //# sourceMappingURL=skeleton.js.map
