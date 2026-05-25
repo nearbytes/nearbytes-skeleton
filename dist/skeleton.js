@@ -17,13 +17,10 @@ async function bootSync(log, friends, profileSecret, blockStorageRoot) {
     const crypto = createCryptoOperations();
     const serveProfilePublicKey = await profilePublicKeyFromSecret(crypto, profileSecret);
     const discoveryTransport = process.env['NEARBYTES_SYNC_DISCOVERY'] === 'mdns' ? 'mdns' : undefined;
-    const poolEnv = process.env['NEARBYTES_HASH_POOL_CAPACITY'];
-    const hashWorkerPoolCapacity = poolEnv && poolEnv.trim() !== '' ? Math.max(1, Math.floor(Number(poolEnv))) : undefined;
     return start(log, friends, {
         serveProfilePublicKey,
         blockStorageRoot,
         ...(discoveryTransport ? { discoveryTransport } : {}),
-        ...(hashWorkerPoolCapacity !== undefined ? { hashWorkerPoolCapacity } : {}),
     });
 }
 /**
