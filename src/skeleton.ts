@@ -33,10 +33,17 @@ async function bootSync(
   log: Log,
   friends: readonly string[],
   profileSecret: string | undefined,
+  blockStorageRoot?: string,
 ): Promise<SyncHandle> {
   const crypto = createCryptoOperations();
   const serveProfilePublicKey = await profilePublicKeyFromSecret(crypto, profileSecret);
-  return start(log, friends, { serveProfilePublicKey });
+  const discoveryTransport =
+    process.env['NEARBYTES_SYNC_DISCOVERY'] === 'mdns' ? ('mdns' as const) : undefined;
+  return start(log, friends, {
+    serveProfilePublicKey,
+    blockStorageRoot,
+    ...(discoveryTransport ? { discoveryTransport } : {}),
+  });
 }
 
 /**
@@ -46,9 +53,11 @@ export async function createSkeleton(
   log: Log,
   friends: readonly string[],
   profileSecret?: string,
+  blockStorageRoot?: string,
 ): Promise<NearbytesSkeleton> {
   const crypto = createCryptoOperations();
-  let sync = await bootSync(log, friends, profileSecret);
+  let sync = await bootSync(log, friends, profileSecret, blockStorageRoot);
+  const storageRoot = blockStorageRoot;
   const skeleton: NearbytesSkeleton = {
     crypto,
     log,
@@ -60,7 +69,7 @@ export async function createSkeleton(
     },
     async reloadSync(nextFriends: readonly string[], nextProfileSecret?: string): Promise<void> {
       await sync.stop();
-      sync = await bootSync(log, nextFriends, nextProfileSecret ?? profileSecret);
+      sync = await bootSync(log, nextFriends, nextProfileSecret ?? profileSecret, storageRoot);
     },
   };
   return skeleton;
@@ -75,7 +84,7 @@ export async function createFilesystemSkeleton(
   profileSecret?: string,
 ): Promise<NearbytesSkeleton> {
   await initializeStorageRoot(dataDir);
-  return createSkeleton(createFilesystemLog(dataDir), friends, profileSecret);
+  return createSkeleton(createFilesystemLog(dataDir), friends, profileSecret, dataDir);
 }
 
 /**

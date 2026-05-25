@@ -13,17 +13,23 @@ async function profilePublicKeyFromSecret(crypto, profileSecret) {
     const keyPair = await crypto.deriveKeys(createSecret(profileSecret));
     return bytesToHex(keyPair.publicKey);
 }
-async function bootSync(log, friends, profileSecret) {
+async function bootSync(log, friends, profileSecret, blockStorageRoot) {
     const crypto = createCryptoOperations();
     const serveProfilePublicKey = await profilePublicKeyFromSecret(crypto, profileSecret);
-    return start(log, friends, { serveProfilePublicKey });
+    const discoveryTransport = process.env['NEARBYTES_SYNC_DISCOVERY'] === 'mdns' ? 'mdns' : undefined;
+    return start(log, friends, {
+        serveProfilePublicKey,
+        blockStorageRoot,
+        ...(discoveryTransport ? { discoveryTransport } : {}),
+    });
 }
 /**
  * Wires a pre-built `Log` with crypto and starts sync.
  */
-export async function createSkeleton(log, friends, profileSecret) {
+export async function createSkeleton(log, friends, profileSecret, blockStorageRoot) {
     const crypto = createCryptoOperations();
-    let sync = await bootSync(log, friends, profileSecret);
+    let sync = await bootSync(log, friends, profileSecret, blockStorageRoot);
+    const storageRoot = blockStorageRoot;
     const skeleton = {
         crypto,
         log,
@@ -35,7 +41,7 @@ export async function createSkeleton(log, friends, profileSecret) {
         },
         async reloadSync(nextFriends, nextProfileSecret) {
             await sync.stop();
-            sync = await bootSync(log, nextFriends, nextProfileSecret ?? profileSecret);
+            sync = await bootSync(log, nextFriends, nextProfileSecret ?? profileSecret, storageRoot);
         },
     };
     return skeleton;
@@ -45,7 +51,7 @@ export async function createSkeleton(log, friends, profileSecret) {
  */
 export async function createFilesystemSkeleton(dataDir, friends = [], profileSecret) {
     await initializeStorageRoot(dataDir);
-    return createSkeleton(createFilesystemLog(dataDir), friends, profileSecret);
+    return createSkeleton(createFilesystemLog(dataDir), friends, profileSecret, dataDir);
 }
 /**
  * Boot from parsed config: storage root, log, and sync for `config.friends`.

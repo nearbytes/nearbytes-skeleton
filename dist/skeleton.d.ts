@@ -15,7 +15,7 @@ export interface NearbytesSkeleton {
 /**
  * Wires a pre-built `Log` with crypto and starts sync.
  */
-export declare function createSkeleton(log: Log, friends: readonly string[], profileSecret?: string): Promise<NearbytesSkeleton>;
+export declare function createSkeleton(log: Log, friends: readonly string[], profileSecret?: string, blockStorageRoot?: string): Promise<NearbytesSkeleton>;
 /**
  * Initialises a filesystem storage root and returns a skeleton backed by it.
  */
