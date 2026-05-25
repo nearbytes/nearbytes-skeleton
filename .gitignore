@@ -3,3 +3,4 @@ package-lock.json
 .yarn/install-state.gz
 .yarn/cache/
 *.tsbuildinfo
+dist/
