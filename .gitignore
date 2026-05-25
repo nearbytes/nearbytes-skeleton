@@ -4,4 +4,3 @@ package-lock.json
 .yarn/cache/
 *.tsbuildinfo
 dist/
-yarn.lock

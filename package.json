@@ -1,7 +1,7 @@
 {
   "name": "nearbytes-skeleton",
   "version": "0.1.0",
-  "description": "Nearbytes protocol foundation \u2014 crypto + log wiring, reactive store, config, filesystem watcher",
+  "description": "Nearbytes protocol foundation — crypto + log wiring, reactive store, config, filesystem watcher",
   "type": "module",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
@@ -16,19 +16,22 @@
   },
   "scripts": {
     "build": "tsc",
-    "type-check": "tsc --noEmit"
+    "type-check": "tsc --noEmit",
+    "prepack": "tsc",
+    "update": "node scripts/update.mjs"
   },
   "license": "MIT",
   "engines": {
     "node": ">=18.0.0"
   },
   "dependencies": {
-    "nearbytes-crypto": "file:../nearbytes-crypto",
-    "nearbytes-log": "file:../nearbytes-log",
-    "nearbytes-sync": "file:../nearbytes-sync"
+    "nearbytes-crypto": "github:nearbytes/nearbytes-crypto#b63d261fb470e135b20a7c2f5f85691ffa52d695",
+    "nearbytes-log": "github:nearbytes/nearbytes-log#10ff0f0cb8b57b0e6c7ad2e73c7e0d48205295e9",
+    "nearbytes-sync": "github:nearbytes/nearbytes-sync#89569f1b52c1e557c414533322351a15ce8bdbfe"
   },
   "devDependencies": {
     "@types/node": "^20.10.0",
     "typescript": "^5.3.2"
-  }
+  },
+  "packageManager": "yarn@4.15.0"
 }
