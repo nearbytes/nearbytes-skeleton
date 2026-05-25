@@ -20,14 +20,24 @@ export interface NearbytesSkeleton {
 
 async function profilePublicKeyFromSecret(
   crypto: CryptoOperations,
-  profileSecret: string | undefined,
-): Promise<string | undefined> {
-  if (!profileSecret) {
-    return undefined;
-  }
+  profileSecret: string,
+): Promise<string> {
   const keyPair = await crypto.deriveKeys(createSecret(profileSecret));
   return bytesToHex(keyPair.publicKey);
 }
+
+/**
+ * Inert sync handle for the "no identity declared yet" state: the node has
+ * no profile public key, so per `requirements/sync-discovery-v1.md` it has
+ * no topic to join and per `requirements/sync-protocol-v1.md` it cannot
+ * authenticate friend handshakes. The skeleton represents this explicitly
+ * with a dormant handle; `reloadSync` swaps in a live one as soon as
+ * `profileSecret` is configured.
+ */
+const INERT_SYNC: SyncHandle = {
+  friends: [],
+  stop: async () => {},
+};
 
 async function bootSync(
   log: Log,
@@ -35,6 +45,9 @@ async function bootSync(
   profileSecret: string | undefined,
   blockStorageRoot?: string,
 ): Promise<SyncHandle> {
+  if (!profileSecret) {
+    return INERT_SYNC;
+  }
   const crypto = createCryptoOperations();
   const serveProfilePublicKey = await profilePublicKeyFromSecret(crypto, profileSecret);
   const discoveryTransport =

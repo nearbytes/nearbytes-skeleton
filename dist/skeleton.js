@@ -7,13 +7,25 @@ import { createFilesystemLog } from 'nearbytes-log';
 import { start } from 'nearbytes-sync/node';
 import { initializeStorageRoot } from './rootInit.js';
 async function profilePublicKeyFromSecret(crypto, profileSecret) {
-    if (!profileSecret) {
-        return undefined;
-    }
     const keyPair = await crypto.deriveKeys(createSecret(profileSecret));
     return bytesToHex(keyPair.publicKey);
 }
+/**
+ * Inert sync handle for the "no identity declared yet" state: the node has
+ * no profile public key, so per `requirements/sync-discovery-v1.md` it has
+ * no topic to join and per `requirements/sync-protocol-v1.md` it cannot
+ * authenticate friend handshakes. The skeleton represents this explicitly
+ * with a dormant handle; `reloadSync` swaps in a live one as soon as
+ * `profileSecret` is configured.
+ */
+const INERT_SYNC = {
+    friends: [],
+    stop: async () => { },
+};
 async function bootSync(log, friends, profileSecret, blockStorageRoot) {
+    if (!profileSecret) {
+        return INERT_SYNC;
+    }
     const crypto = createCryptoOperations();
     const serveProfilePublicKey = await profilePublicKeyFromSecret(crypto, profileSecret);
     const discoveryTransport = process.env['NEARBYTES_SYNC_DISCOVERY'] === 'mdns' ? 'mdns' : undefined;
