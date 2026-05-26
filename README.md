@@ -37,3 +37,18 @@ const skeleton = await createFilesystemSkeletonFromConfig(config);
 // skeleton.crypto, skeleton.log, skeleton.sync
 await skeleton.destroy();
 ```
+
+## Daemon-aware boot
+
+`bootSync` (and therefore `createSkeleton` / `createFilesystemSkeleton*`) probes the dataDir sync-singleton lock before calling `start()`. Two outcomes:
+
+| State of `dataDir` | What you get back |
+|---|---|
+| No daemon active | Full `SyncHandle` — discovery joins, peer-loop, outbound block pump. The skeleton holds the sync-singleton lock until `destroy()`. |
+| `nbsync` daemon already holding the lock | Writer-only `SyncHandle` stub — opens no swarm sockets, registers no peer-loop callbacks. Local writes go straight to `nearbytes-log`; the running daemon notices them via its filesystem watcher (DISC-27.4) and broadcasts `have` to peers on your behalf. |
+
+This is what lets the `nbf` CLI run alongside a long-lived `nbsync` daemon against the same `dataDir` without IPC, lock contention, or duplicate peer-loop bookkeeping. See [`requirements/sync-discovery-v1.md`](https://github.com/nearbytes/nearbytes-specs/blob/main/requirements/sync-discovery-v1.md) DISC-27.1.
+
+## Storage-root initialisation
+
+`initializeStorageRoot(dataDir)` (called by every `createFilesystemSkeleton*` entrypoint) creates the standard layout (`blocks/`, `channels/`, `peer-id`) and reaps stale `*.tmp` scratch files left by crashed writers. The reaper uses a safety window long enough to never disturb a concurrent in-flight `link(2)` publish from another writer process.
