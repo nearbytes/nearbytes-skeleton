@@ -43,7 +43,7 @@ async function publicKeyFromSecret(
 const INERT_SYNC: SyncHandle = {
   friends: [],
   serveProfilePublicKeys: [],
-  snapshot: () => ({ inflightInbound: 0, inflightOutbound: 0 }),
+  snapshot: () => ({ inflightInbound: 0, inflightOutbound: 0, connectedPeers: 0 }),
   stop: async () => {},
 };
 
@@ -73,7 +73,15 @@ function makeWriterOnlySync(
   return {
     friends: [...friends],
     serveProfilePublicKeys: [...servedPks],
-    snapshot: () => ({ inflightInbound: 0, inflightOutbound: 0 }),
+    /**
+     * Writer-only handle: we never open peer sockets, so connectedPeers is
+     * always 0. CLI bye-time flush callers MUST account for this case (the
+     * daemon-active path) and not block forever waiting for a peer that
+     * will never appear in *this* process — the running daemon is the one
+     * doing the network work, and writes are propagated via the dataDir
+     * watcher (DISC-27.4).
+     */
+    snapshot: () => ({ inflightInbound: 0, inflightOutbound: 0, connectedPeers: 0 }),
     stop: async () => {},
     daemon: { holderPid, lockPath, heldSince },
   };
