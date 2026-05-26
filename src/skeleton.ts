@@ -45,6 +45,8 @@ const INERT_SYNC: SyncHandle = {
   serveProfilePublicKeys: [],
   snapshot: () => ({ inflightInbound: 0, inflightOutbound: 0, connectedPeers: 0 }),
   peers: () => [],
+  onEvent: () => () => {},
+  recentEvents: () => [],
   stop: async () => {},
 };
 
@@ -84,6 +86,14 @@ function makeWriterOnlySync(
      */
     snapshot: () => ({ inflightInbound: 0, inflightOutbound: 0, connectedPeers: 0 }),
     peers: () => [],
+    /**
+     * Writer-only: this process is NOT the sync engine, so it never
+     * emits wire-level events. Observability UIs that detect a
+     * daemon-active dataDir read the daemon's state beacon instead
+     * (`readSyncStateBeacon`), which carries the daemon's `events`.
+     */
+    onEvent: () => () => {},
+    recentEvents: () => [],
     stop: async () => {},
     daemon: { holderPid, lockPath, heldSince },
   };
