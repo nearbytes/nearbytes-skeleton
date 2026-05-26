@@ -47,6 +47,16 @@ const INERT_SYNC: SyncHandle = {
   peers: () => [],
   onEvent: () => () => {},
   recentEvents: () => [],
+  stats: () => ({
+    totalBytesIn: 0,
+    totalBytesOut: 0,
+    totalBlocksIn: 0,
+    totalBlocksOut: 0,
+    totalEventsIn: 0,
+    bytesPerSecIn: 0,
+    bytesPerSecOut: 0,
+    windowMs: 5_000,
+  }),
   stop: async () => {},
 };
 
@@ -90,10 +100,26 @@ function makeWriterOnlySync(
      * Writer-only: this process is NOT the sync engine, so it never
      * emits wire-level events. Observability UIs that detect a
      * daemon-active dataDir read the daemon's state beacon instead
-     * (`readSyncStateBeacon`), which carries the daemon's `events`.
+     * (`readSyncStateBeacon`), which carries the daemon's `events`
+     * and `stats`.
      */
     onEvent: () => () => {},
     recentEvents: () => [],
+    /**
+     * Writer-only: no bytes flow through this process, so all counters
+     * are zero. Real throughput data is published by the daemon and
+     * read via `readSyncStateBeacon().payload.stats`.
+     */
+    stats: () => ({
+      totalBytesIn: 0,
+      totalBytesOut: 0,
+      totalBlocksIn: 0,
+      totalBlocksOut: 0,
+      totalEventsIn: 0,
+      bytesPerSecIn: 0,
+      bytesPerSecOut: 0,
+      windowMs: 5_000,
+    }),
     stop: async () => {},
     daemon: { holderPid, lockPath, heldSince },
   };
