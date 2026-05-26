@@ -27,6 +27,21 @@ Protocol foundation: crypto + log + sync, reactive store, config, filesystem wat
 
 A node MAY serve $K \ge 0$ local profiles simultaneously (see `requirements/sync-protocol-v1.md` SYNC-00). Sync keeps syncing **all** profiles; the active profile is the one used to sign `profile publish` and as the follower identity for outbound dials. The legacy `profileSecret: string` field is migrated in-place to `[{ name: "default", secret: profileSecret }]` on first read.
 
+### Config-file permissions
+
+`profiles[].secret` and `volumes[].secret` are stored in cleartext (they ARE the inputs to `crypto.deriveKeys`), so the config file is treated as a credential file:
+
+- `writeConfig` always lands the file at POSIX mode `0o600` (owner read+write only), atomically via unique tmp + rename — even when overwriting an existing world-readable copy.
+- `readConfig` (and the daemon's `readDaemonConfig`) `stat`s the file and throws `Config file <path> is group/world-accessible (mode 0NNN). Refusing to load …` if the mode has any group/world bits set or the file is not owned by your UID.
+
+If you wrote the config by hand, fix it with:
+
+```sh
+chmod 600 ~/.nearbytes/config.json
+```
+
+The check is POSIX-only and no-ops on Windows.
+
 ## Example
 
 ```ts

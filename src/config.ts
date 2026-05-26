@@ -8,8 +8,9 @@
  * For now the file is plain JSON so the skeleton can boot without a secret.
  */
 
-import { mkdir, readFile, writeFile } from 'fs/promises';
+import { mkdir, readFile, rename, stat, writeFile } from 'fs/promises';
 import { existsSync } from 'fs';
+import { randomBytes } from 'crypto';
 import path from 'path';
 import os from 'os';
 
@@ -80,10 +81,45 @@ export function emptyConfig(dataDir: string = defaultDataDir()): NearbytesConfig
 }
 
 /**
+ * Refuse to load the config file if its POSIX permissions allow anyone other
+ * than the owning user to read or write it. The config contains profile and
+ * volume secrets in cleartext (those strings ARE the inputs to
+ * `crypto.deriveKeys`), so a group- or world-readable file — which is what
+ * the default `umask 022` produces — is a credential leak: any local user
+ * could read the file and sync as that profile or open any listed volume.
+ *
+ * On Windows there is no POSIX-mode equivalent we can rely on (ACLs are out
+ * of scope here), so the check no-ops there.
+ *
+ * To fix on an existing install: `chmod 600 ~/.nearbytes/config.json`.
+ */
+export async function assertSecureConfigPermissions(filePath: string): Promise<void> {
+  if (process.platform === 'win32') return;
+  const st = await stat(filePath);
+  const euid = process.geteuid?.();
+  if (euid !== undefined && st.uid !== euid) {
+    throw new Error(
+      `Config file ${filePath} is owned by UID ${st.uid} (not your UID ${euid}). ` +
+        `Refusing to load — config contains profile/volume secrets in cleartext.`,
+    );
+  }
+  if ((st.mode & 0o077) !== 0) {
+    const octal = (st.mode & 0o777).toString(8).padStart(3, '0');
+    throw new Error(
+      `Config file ${filePath} is group/world-accessible (mode ${octal}). ` +
+        `Refusing to load — config contains profile/volume secrets in cleartext. ` +
+        `Run: chmod 600 ${filePath}`,
+    );
+  }
+}
+
+/**
  * Reads and parses the config file.
  *
  * Missing or empty config files are silently accepted — callers fall back to
  * defaults.  Malformed JSON or unexpected shapes throw an error with context.
+ * Files with insecure POSIX permissions (group/world readable) are also
+ * refused, see `assertSecureConfigPermissions`.
  *
  * @param configPath - Path to the JSON config file (default: `defaultConfigPath()`)
  */
@@ -93,6 +129,8 @@ export async function readConfig(configPath?: string): Promise<NearbytesConfig> 
   if (!existsSync(filePath)) {
     return EMPTY_CONFIG;
   }
+
+  await assertSecureConfigPermissions(filePath);
 
   let raw: string;
   try {
@@ -199,6 +237,21 @@ function readActiveProfile(
 
 /**
  * Writes config JSON (creates parent directory if needed).
+ *
+ * The file is always created with POSIX mode `0o600` (owner read+write only)
+ * because it contains profile and volume secrets in cleartext. Atomic
+ * publish via unique tmp + rename: the tmp is created with `mode: 0o600`
+ * which `fs.writeFile` honours on file creation, and `fs.rename` preserves
+ * the source file's mode bits at the destination — so even when overwriting
+ * a previously group-readable config, the final file lands at `0o600`.
+ *
+ * The tmp suffix is randomised so concurrent writers cannot collide on each
+ * other's scratch file (same idiom as the content-addressed publish path in
+ * `nearbytes-log/fsIo`).
+ *
+ * `mode` is ignored on Windows; ACLs there are out of scope. POSIX umask
+ * cannot loosen the file beyond `0o600` either, because `(0o600 & ~umask)`
+ * has no group/world bits to clear for any umask value.
  */
 export async function writeConfig(config: NearbytesConfig, configPath?: string): Promise<void> {
   const filePath = configPath ?? defaultConfigPath();
@@ -210,5 +263,17 @@ export async function writeConfig(config: NearbytesConfig, configPath?: string):
     profiles: config.profiles.map((p) => ({ name: p.name, secret: p.secret })),
     activeProfile: config.activeProfile,
   };
-  await writeFile(filePath, `${JSON.stringify(body, null, 2)}\n`, 'utf-8');
+  const tmp = `${filePath}.${randomBytes(8).toString('hex')}.tmp`;
+  try {
+    await writeFile(tmp, `${JSON.stringify(body, null, 2)}\n`, { encoding: 'utf-8', mode: 0o600 });
+    await rename(tmp, filePath);
+  } catch (err) {
+    try {
+      const { unlink } = await import('fs/promises');
+      await unlink(tmp);
+    } catch {
+      /* tmp may not exist — best-effort cleanup */
+    }
+    throw err;
+  }
 }
