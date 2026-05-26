@@ -44,6 +44,7 @@ const INERT_SYNC: SyncHandle = {
   friends: [],
   serveProfilePublicKeys: [],
   snapshot: () => ({ inflightInbound: 0, inflightOutbound: 0, connectedPeers: 0 }),
+  peers: () => [],
   stop: async () => {},
 };
 
@@ -82,6 +83,7 @@ function makeWriterOnlySync(
      * watcher (DISC-27.4).
      */
     snapshot: () => ({ inflightInbound: 0, inflightOutbound: 0, connectedPeers: 0 }),
+    peers: () => [],
     stop: async () => {},
     daemon: { holderPid, lockPath, heldSince },
   };
