@@ -6,7 +6,7 @@ import { createSecret, bytesToHex } from 'nearbytes-crypto';
 import { createCryptoOperations, type CryptoOperations } from 'nearbytes-crypto';
 import type { Log } from 'nearbytes-log';
 import { createFilesystemLog } from 'nearbytes-log';
-import { start, type SyncHandle } from 'nearbytes-sync/node';
+import { start, probeSyncLock, type SyncHandle } from 'nearbytes-sync/node';
 import type { NearbytesConfig, ProfileConfig } from './config.js';
 import { initializeStorageRoot } from './rootInit.js';
 
@@ -47,6 +47,38 @@ const INERT_SYNC: SyncHandle = {
   stop: async () => {},
 };
 
+/**
+ * Writer-only handle returned when a separate sync daemon already holds
+ * the sync-singleton lock on the dataDir (`sync-discovery-v1.md` DISC-27,
+ * split form: singleton sync, plural writers).
+ *
+ * This handle deliberately does NOT join any swarm, does NOT open any
+ * Hyperswarm/mDNS sockets, and does NOT register any peer-loop callbacks.
+ * Locally appended events still land in the on-disk log via `nearbytes-log`
+ * (no lock is required for log writes — they are content-addressed and
+ * atomic-link-published, see DISC-27 §writer model). The active daemon's
+ * channels watcher picks them up and replicates them to peers.
+ *
+ * `friends` and `serveProfilePublicKeys` echo the in-process intent so
+ * UIs can still render "what we would sync if we owned the slot"; the
+ * truth on the wire belongs to the daemon.
+ */
+function makeWriterOnlySync(
+  friends: readonly string[],
+  servedPks: readonly string[],
+  holderPid: number,
+  lockPath: string,
+  heldSince: Date,
+): SyncHandle & { readonly daemon: { holderPid: number; lockPath: string; heldSince: Date } } {
+  return {
+    friends: [...friends],
+    serveProfilePublicKeys: [...servedPks],
+    snapshot: () => ({ inflightInbound: 0, inflightOutbound: 0 }),
+    stop: async () => {},
+    daemon: { holderPid, lockPath, heldSince },
+  };
+}
+
 async function bootSync(
   log: Log,
   friends: readonly string[],
@@ -67,6 +99,25 @@ async function bootSync(
     );
   }
   const activeProfilePublicKey = servedPks[activeIdx]!;
+
+  // Daemon coexistence (DISC-27, split form): if another process already
+  // owns the sync-singleton slot for this dataDir, we do NOT compete. We
+  // become a writer-only client and let the daemon do the network work.
+  // Local writes still go straight to disk via nearbytes-log; the daemon's
+  // dataDir watcher notices and replicates them.
+  if (blockStorageRoot !== undefined) {
+    const status = probeSyncLock(blockStorageRoot);
+    if (status.running) {
+      return makeWriterOnlySync(
+        friends,
+        servedPks,
+        status.holderPid,
+        status.lockPath,
+        status.heldSince,
+      );
+    }
+  }
+
   const discoveryTransport =
     process.env['NEARBYTES_SYNC_DISCOVERY'] === 'mdns' ? ('mdns' as const) : undefined;
   return start(log, friends, {

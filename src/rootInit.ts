@@ -19,7 +19,7 @@
  * should map this module to a no-op shim when targeting browsers.
  */
 
-import { mkdir, writeFile, rm, access } from 'fs/promises';
+import { mkdir, writeFile, rm, access, readdir, unlink, stat } from 'fs/promises';
 import { join } from 'path';
 import { constants } from 'fs';
 
@@ -123,12 +123,71 @@ function buildNearbytesHtml(): string {
 }
 
 /**
+ * Reap stale `*.tmp` scratch files inside `dir`.
+ *
+ * `nearbytes-log/src/internal/fsIo.ts` publishes content-addressed blocks
+ * and events via "write to `<final>.<rand>.tmp` → `link` → `unlink` tmp".
+ * If a process is killed between the write and the unlink, the tmp file
+ * is orphaned. They are harmless (any reader looks up the canonical
+ * `<hash>.bin`, never `<hash>.<rand>.tmp`) but they accumulate.
+ *
+ * This reaper deletes anything matching `*.tmp` in `dir` that is older
+ * than the safety window. A safety window matters because another
+ * process may be mid-write right now and we MUST NOT yank its tmp out
+ * from under it; the `link` step happens within milliseconds of the
+ * write, so anything older than a few minutes was definitely orphaned.
+ */
+const TMP_REAP_AGE_MS = 5 * 60 * 1000; // 5 minutes
+
+async function reapStaleTmpFiles(dir: string): Promise<void> {
+  let entries: import('node:fs').Dirent[];
+  try {
+    entries = await readdir(dir, { withFileTypes: true });
+  } catch (err) {
+    if ((err as NodeJS.ErrnoException).code === 'ENOENT') return;
+    throw err;
+  }
+  const now = Date.now();
+  await Promise.all(
+    entries.map(async (entry) => {
+      if (!entry.isFile() || !entry.name.endsWith('.tmp')) return;
+      const path = join(dir, entry.name);
+      try {
+        const stats = await stat(path);
+        if (now - stats.mtimeMs < TMP_REAP_AGE_MS) return;
+        await unlink(path).catch(() => undefined);
+      } catch {
+        // best-effort: missing/permission errors are not failures here
+      }
+    }),
+  );
+}
+
+async function reapStaleTmpFilesRecursive(dir: string): Promise<void> {
+  let entries: import('node:fs').Dirent[];
+  try {
+    entries = await readdir(dir, { withFileTypes: true });
+  } catch (err) {
+    if ((err as NodeJS.ErrnoException).code === 'ENOENT') return;
+    throw err;
+  }
+  await reapStaleTmpFiles(dir);
+  await Promise.all(
+    entries.map((entry) =>
+      entry.isDirectory() ? reapStaleTmpFilesRecursive(join(dir, entry.name)) : Promise.resolve(),
+    ),
+  );
+}
+
+/**
  * Ensures the storage root at `dataDir` conforms to the Nearbytes
  * meta-storage specification (§4.1):
  *
  *  - Creates `blocks/` and `channels/` directories if missing.
  *  - Writes `Nearbytes.html` (always, to keep it current with this version).
  *  - Deletes `Nearbytes.json` if present (obsolete format; spec §4.1 rule 7).
+ *  - Reaps stale `*.tmp` scratch files left by crashed writers (older than
+ *    {@link TMP_REAP_AGE_MS}), under `blocks/` and `channels/<pk>/`.
  *
  * Idempotent and safe to call on every startup or after a conflict repair.
  *
@@ -143,4 +202,7 @@ export async function initializeStorageRoot(dataDir: string): Promise<void> {
     await access(join(dataDir, 'Nearbytes.json'), constants.F_OK);
     await rm(join(dataDir, 'Nearbytes.json'));
   } catch {}
+
+  await reapStaleTmpFiles(join(dataDir, 'blocks'));
+  await reapStaleTmpFilesRecursive(join(dataDir, 'channels'));
 }
