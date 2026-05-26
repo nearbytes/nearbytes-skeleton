@@ -25,8 +25,8 @@
     "node": ">=18.0.0"
   },
   "dependencies": {
-    "nearbytes-crypto": "github:nearbytes/nearbytes-crypto#b63d261fb470e135b20a7c2f5f85691ffa52d695",
-    "nearbytes-log": "github:nearbytes/nearbytes-log#10ff0f0cb8b57b0e6c7ad2e73c7e0d48205295e9",
+    "nearbytes-crypto": "github:nearbytes/nearbytes-crypto#6859719510764702844882b8488b35ab31f20145",
+    "nearbytes-log": "github:nearbytes/nearbytes-log#a9ec85c732ede46026fa6acb08cd7a9ea366180e",
     "nearbytes-sync": "github:nearbytes/nearbytes-sync#773fae953e62d84fc03c58d5ee7ae5eb176e6187"
   },
   "devDependencies": {
