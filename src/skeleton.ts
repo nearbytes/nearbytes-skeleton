@@ -6,7 +6,7 @@ import { createSecret, bytesToHex } from 'nearbytes-crypto';
 import { createCryptoOperations, type CryptoOperations } from 'nearbytes-crypto';
 import type { Log } from 'nearbytes-log';
 import { createFilesystemLog } from 'nearbytes-log';
-import { start, probeSyncLock, type SyncHandle } from 'nearbytes-sync/node';
+import { start, peekNodeId, probeSyncLock, type SyncHandle } from 'nearbytes-sync/node';
 import type { NearbytesConfig, ProfileConfig } from './config.js';
 import { initializeStorageRoot } from './rootInit.js';
 
@@ -43,6 +43,8 @@ async function publicKeyFromSecret(
 const INERT_SYNC: SyncHandle = {
   friends: [],
   serveProfilePublicKeys: [],
+  peerId: '',
+  activeProfilePublicKey: '',
   snapshot: () => ({ inflightInbound: 0, inflightOutbound: 0, connectedPeers: 0 }),
   peers: () => [],
   onEvent: () => () => {},
@@ -79,6 +81,8 @@ const INERT_SYNC: SyncHandle = {
 function makeWriterOnlySync(
   friends: readonly string[],
   servedPks: readonly string[],
+  activeProfilePublicKey: string,
+  dataDir: string,
   holderPid: number,
   lockPath: string,
   heldSince: Date,
@@ -86,6 +90,14 @@ function makeWriterOnlySync(
   return {
     friends: [...friends],
     serveProfilePublicKeys: [...servedPks],
+    /**
+     * Writer-only: the daemon owns the sync engine, but the node id is
+     * a property of the *dataDir*, not of whichever process happens to
+     * hold the lock. Read it from disk so `nbf whoami` and the monitor
+     * can still show "this machine's id" even when we are not the engine.
+     */
+    peerId: peekNodeId(dataDir),
+    activeProfilePublicKey,
     /**
      * Writer-only handle: we never open peer sockets, so connectedPeers is
      * always 0. CLI bye-time flush callers MUST account for this case (the
@@ -157,6 +169,8 @@ async function bootSync(
       return makeWriterOnlySync(
         friends,
         servedPks,
+        activeProfilePublicKey,
+        blockStorageRoot,
         status.holderPid,
         status.lockPath,
         status.heldSince,
