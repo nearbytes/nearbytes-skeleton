@@ -4,9 +4,16 @@
 
 import { createSecret, bytesToHex } from 'nearbytes-crypto';
 import { createCryptoOperations, type CryptoOperations } from 'nearbytes-crypto';
+import { readFileSync } from 'node:fs';
+import { join } from 'node:path';
 import type { Log } from 'nearbytes-log';
 import { createFilesystemLog } from 'nearbytes-log';
-import { start, peekNodeId, probeSyncLock, type SyncHandle } from 'nearbytes-sync/node';
+import {
+  start,
+  peekNodeId,
+  probeSyncLock,
+  type SyncHandle,
+} from 'nearbytes-sync/node';
 import type { NearbytesConfig, ProfileConfig } from './config.js';
 import { initializeStorageRoot } from './rootInit.js';
 
@@ -62,6 +69,16 @@ const INERT_SYNC: SyncHandle = {
   stop: async () => {},
 };
 
+function peekInstancePublicKey(dataDir: string): string {
+  try {
+    const raw = readFileSync(join(dataDir, 'sync', 'instance.json'), 'utf8');
+    const parsed = JSON.parse(raw) as { publicKey?: unknown };
+    return typeof parsed.publicKey === 'string' ? parsed.publicKey.toLowerCase() : '';
+  } catch {
+    return '';
+  }
+}
+
 /**
  * Writer-only handle returned when a separate sync daemon already holds
  * the sync-singleton lock on the dataDir (`sync-discovery-v1.md` DISC-27,
@@ -87,15 +104,16 @@ function makeWriterOnlySync(
   lockPath: string,
   heldSince: Date,
 ): SyncHandle & { readonly daemon: { holderPid: number; lockPath: string; heldSince: Date } } {
-  return {
+  const handle = {
     friends: [...friends],
     serveProfilePublicKeys: [...servedPks],
     /**
-     * Writer-only: the daemon owns the sync engine, but the node id is
+     * Writer-only: the daemon owns the sync engine, but the instance id is
      * a property of the *dataDir*, not of whichever process happens to
      * hold the lock. Read it from disk so `nbf whoami` and the monitor
      * can still show "this machine's id" even when we are not the engine.
      */
+    instancePublicKey: peekInstancePublicKey(dataDir),
     peerId: peekNodeId(dataDir),
     activeProfilePublicKey,
     /**
@@ -135,6 +153,7 @@ function makeWriterOnlySync(
     stop: async () => {},
     daemon: { holderPid, lockPath, heldSince },
   };
+  return handle;
 }
 
 async function bootSync(
