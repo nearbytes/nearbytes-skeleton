@@ -50,6 +50,7 @@ async function publicKeyFromSecret(
 const INERT_SYNC: SyncHandle = {
   friends: [],
   serveProfilePublicKeys: [],
+  instancePublicKey: '',
   peerId: '',
   activeProfilePublicKey: '',
   snapshot: () => ({ inflightInbound: 0, inflightOutbound: 0, connectedPeers: 0 }),
