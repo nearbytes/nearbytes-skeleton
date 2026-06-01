@@ -8,7 +8,7 @@ Protocol foundation: crypto + log + sync, reactive store, config, filesystem wat
 - **`createFilesystemSkeleton(dataDir, friends?, spec?)`** — same without reading config file (`spec = { profiles, activeProfile }`)
 - **`createSkeleton(log, friends, spec)`** — wire crypto + sync to an existing `Log`
 - **`readConfig`** — returns `NearbytesConfig` with required `friends`, `profiles`, `activeProfile`
-- **`writable` / `derived`**, **`createFilesystemWatcher`**, **`initializeStorageRoot`**
+- **`writable` / `derived`**, **`createFilesystemWatcher(watchRoot, …)`** (typically `dataDir/channels/<pubkey-hex>/`), **`initializeStorageRoot`**
 
 ## Config
 

@@ -9,11 +9,11 @@ export interface Refreshable {
 }
 
 /**
- * Watches `dataDir` and calls `volume.refresh()` on change (debounced).
- * Returns a no-op watcher when Node.js is unavailable.
+ * Watches `watchRoot` (typically `dataDir/channels/<pubkey-hex>/`) and calls
+ * `volume.refresh()` on change (debounced). Returns a no-op watcher when Node.js is unavailable.
  */
 export function createFilesystemWatcher(
-  dataDir: string,
+  watchRoot: string,
   volume: Refreshable,
   debounceMs = 200,
 ): VolumeWatcher {
@@ -23,7 +23,7 @@ export function createFilesystemWatcher(
 
   let timer: ReturnType<typeof setTimeout> | null = null;
 
-  const watcher = watch(dataDir, { recursive: true }, () => {
+  const watcher = watch(watchRoot, { recursive: true }, () => {
     if (timer !== null) clearTimeout(timer);
     timer = setTimeout(() => {
       timer = null;
