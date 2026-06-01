@@ -196,6 +196,7 @@ async function reapStaleTmpFilesRecursive(dir: string): Promise<void> {
 export async function initializeStorageRoot(dataDir: string): Promise<void> {
   await mkdir(join(dataDir, 'blocks'), { recursive: true });
   await mkdir(join(dataDir, 'channels'), { recursive: true });
+  await mkdir(join(dataDir, 'sync'), { recursive: true });
   await writeFile(join(dataDir, 'Nearbytes.html'), buildNearbytesHtml(), 'utf8');
 
   try {
