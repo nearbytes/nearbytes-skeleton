@@ -28,7 +28,7 @@
   "dependencies": {
     "nearbytes-crypto": "github:nearbytes/nearbytes-crypto",
     "nearbytes-log": "https://github.com/nearbytes/nearbytes-log.git#commit=0a1bef159ead34b542d20af74b8473e2232a90e2",
-    "nearbytes-sync": "https://github.com/nearbytes/nearbytes-sync.git#commit=3753303a82171efd21ba39f8797a7886e2a57eca"
+    "nearbytes-sync": "https://github.com/nearbytes/nearbytes-sync.git#commit=88a2b1493696c061caeb95578b106b0982a58909"
   },
   "devDependencies": {
     "@types/node": "^20.10.0",
