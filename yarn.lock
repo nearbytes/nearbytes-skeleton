@@ -514,6 +514,15 @@ __metadata:
   languageName: node
   linkType: hard
 
+"nearbytes-log@https://github.com/nearbytes/nearbytes-log.git#commit=18ac65defb5f45ae03bfb64632ce1a65f20424d3":
+  version: 0.1.0
+  resolution: "nearbytes-log@https://github.com/nearbytes/nearbytes-log.git#commit=18ac65defb5f45ae03bfb64632ce1a65f20424d3"
+  dependencies:
+    nearbytes-crypto: "github:nearbytes/nearbytes-crypto"
+  checksum: 10c0/af5cfb8ab37b46eeca0bc7e8aa5248b29561d210982e37d616893e4b13c635304694656de6ae38ad68cb93a1e9e8ad2ee11ec52e26ee919ca51406dfa2879487
+  languageName: node
+  linkType: hard
+
 "nearbytes-log@https://github.com/nearbytes/nearbytes-log.git#commit=32a77dc63f63dbbda8fc74bc4b8cbca2459a3888":
   version: 0.1.0
   resolution: "nearbytes-log@https://github.com/nearbytes/nearbytes-log.git#commit=32a77dc63f63dbbda8fc74bc4b8cbca2459a3888"
@@ -529,15 +538,15 @@ __metadata:
   dependencies:
     "@types/node": "npm:^20.10.0"
     nearbytes-crypto: "github:nearbytes/nearbytes-crypto"
-    nearbytes-log: "https://github.com/nearbytes/nearbytes-log.git#commit=32a77dc63f63dbbda8fc74bc4b8cbca2459a3888"
-    nearbytes-sync: "https://github.com/nearbytes/nearbytes-sync.git#commit=d866ef9594c9752617c2aff93f52aa5e34a26280"
+    nearbytes-log: "https://github.com/nearbytes/nearbytes-log.git#commit=18ac65defb5f45ae03bfb64632ce1a65f20424d3"
+    nearbytes-sync: "https://github.com/nearbytes/nearbytes-sync.git#commit=3c8d29644f0a9fa4a15238282ad61f7caadccc93"
     typescript: "npm:^5.3.2"
   languageName: unknown
   linkType: soft
 
-"nearbytes-sync@https://github.com/nearbytes/nearbytes-sync.git#commit=d866ef9594c9752617c2aff93f52aa5e34a26280":
+"nearbytes-sync@https://github.com/nearbytes/nearbytes-sync.git#commit=3c8d29644f0a9fa4a15238282ad61f7caadccc93":
   version: 0.1.0
-  resolution: "nearbytes-sync@https://github.com/nearbytes/nearbytes-sync.git#commit=d866ef9594c9752617c2aff93f52aa5e34a26280"
+  resolution: "nearbytes-sync@https://github.com/nearbytes/nearbytes-sync.git#commit=3c8d29644f0a9fa4a15238282ad61f7caadccc93"
   dependencies:
     bonjour-service: "npm:^1.2.1"
     chokidar: "npm:^4.0.3"
