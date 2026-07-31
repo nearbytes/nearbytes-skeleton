@@ -12,7 +12,9 @@ import {
   start,
   peekNodeId,
   probeSyncLock,
+  MODULE_ID as NEARBYTES_SYNC_MODULE_ID,
   type SyncHandle,
+  type TraceDestination,
 } from 'nearbytes-sync/node';
 import type { NearbytesConfig, ProfileConfig } from './config.js';
 import { initializeStorageRoot } from './rootInit.js';
@@ -48,6 +50,7 @@ async function publicKeyFromSecret(
  * swaps in a live one as soon as the first profile is added.
  */
 const INERT_SYNC: SyncHandle = {
+  moduleId: NEARBYTES_SYNC_MODULE_ID,
   friends: [],
   serveProfilePublicKeys: [],
   instancePublicKey: '',
@@ -106,6 +109,14 @@ function makeWriterOnlySync(
   heldSince: Date,
 ): SyncHandle & { readonly daemon: { holderPid: number; lockPath: string; heldSince: Date } } {
   const handle = {
+    /**
+     * Writer-only: this process holds no live engine, so there is no
+     * "actual" moduleId to report — the daemon's is the one that matters
+     * (its own handle carries its own `MODULE_ID`). Report this process's
+     * own copy identity so `assertSyncModuleIdentity` degrades to a no-op
+     * comparison against itself rather than a spurious mismatch.
+     */
+    moduleId: NEARBYTES_SYNC_MODULE_ID,
     friends: [...friends],
     serveProfilePublicKeys: [...servedPks],
     /**
@@ -162,6 +173,7 @@ async function bootSync(
   friends: readonly string[],
   spec: SyncProfileSpec,
   blockStorageRoot?: string,
+  trace?: TraceDestination,
 ): Promise<SyncHandle> {
   if (spec.profiles.length === 0 || spec.activeProfile === null) {
     return INERT_SYNC;
@@ -205,6 +217,7 @@ async function bootSync(
     activeProfilePublicKey,
     blockStorageRoot,
     ...(discoveryTransport ? { discoveryTransport } : {}),
+    ...(trace !== undefined ? { trace } : {}),
   });
 }
 
@@ -216,9 +229,10 @@ export async function createSkeleton(
   friends: readonly string[],
   spec: SyncProfileSpec,
   blockStorageRoot?: string,
+  trace?: TraceDestination,
 ): Promise<NearbytesSkeleton> {
   const crypto = createCryptoOperations();
-  let sync = await bootSync(log, friends, spec, blockStorageRoot);
+  let sync = await bootSync(log, friends, spec, blockStorageRoot, trace);
   const storageRoot = blockStorageRoot;
   const skeleton: NearbytesSkeleton = {
     crypto,
@@ -231,7 +245,10 @@ export async function createSkeleton(
     },
     async reloadSync(nextFriends: readonly string[], nextSpec: SyncProfileSpec): Promise<void> {
       await sync.stop();
-      sync = await bootSync(log, nextFriends, nextSpec, storageRoot);
+      // Reuse the same `trace` object reference across reload so a caller
+      // holding onto it for runtime toggling (TRACE-01) keeps working
+      // against whichever engine instance is currently live.
+      sync = await bootSync(log, nextFriends, nextSpec, storageRoot, trace);
     },
   };
   return skeleton;
@@ -244,9 +261,10 @@ export async function createFilesystemSkeleton(
   dataDir: string,
   friends: readonly string[] = [],
   spec: SyncProfileSpec = { profiles: [], activeProfile: null },
+  trace?: TraceDestination,
 ): Promise<NearbytesSkeleton> {
   await initializeStorageRoot(dataDir);
-  return createSkeleton(createFilesystemLog(dataDir), friends, spec, dataDir);
+  return createSkeleton(createFilesystemLog(dataDir), friends, spec, dataDir, trace);
 }
 
 /**
@@ -254,9 +272,15 @@ export async function createFilesystemSkeleton(
  */
 export async function createFilesystemSkeletonFromConfig(
   config: NearbytesConfig,
+  trace?: TraceDestination,
 ): Promise<NearbytesSkeleton> {
-  return createFilesystemSkeleton(config.dataDir, config.friends, {
-    profiles: config.profiles,
-    activeProfile: config.activeProfile,
-  });
+  return createFilesystemSkeleton(
+    config.dataDir,
+    config.friends,
+    {
+      profiles: config.profiles,
+      activeProfile: config.activeProfile,
+    },
+    trace,
+  );
 }

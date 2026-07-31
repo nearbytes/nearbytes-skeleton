@@ -20,6 +20,13 @@ export {
   createFilesystemSkeletonFromConfig,
 } from './skeleton.js';
 export type { NearbytesSkeleton, SyncProfileSpec } from './skeleton.js';
+export {
+  assertSyncModuleIdentity,
+  MODULE_ID as NEARBYTES_SYNC_MODULE_ID,
+  type TraceDestination,
+  type SyncDebugLevel,
+  type SyncHandle,
+} from 'nearbytes-sync/node';
 
 export { createFilesystemWatcher } from './watcher.js';
 export type { VolumeWatcher, Refreshable } from './watcher.js';
