@@ -24,6 +24,7 @@ export {
   assertSyncModuleIdentity,
   MODULE_ID as NEARBYTES_SYNC_MODULE_ID,
   type TraceDestination,
+  type TraceSink,
   type SyncDebugLevel,
   type SyncHandle,
 } from 'nearbytes-sync/node';
